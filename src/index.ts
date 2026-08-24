@@ -51,3 +51,7 @@ export * from './infrastructure/mattermost/cron/cron-config-schema';
 
 // MCP Server (Model Context Protocol)
 export { createMattermostMcpServer, runStdioMcpServer } from './mcp/server';
+
+// Web Dashboard & REST API Server
+export { MattermostHttpServer, startMattermostHttpServer } from './ui/server';
+export type { HttpServerOptions } from './ui/server';
