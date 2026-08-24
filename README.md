@@ -15,6 +15,7 @@
   <a href="#-architecture">Architecture</a> •
   <a href="#-features">Features</a> •
   <a href="#-quick-start">Quick Start</a> •
+  <a href="#-yaml-channel-mapping">Channel Mapping</a> •
   <a href="#-cli-reference">CLI Reference</a> •
   <a href="#-typescript-sdk">TypeScript SDK</a> •
   <a href="#-security">Security</a> •
@@ -170,6 +171,74 @@ If your Mattermost workspace administrator disables Personal Access Tokens:
    ```
 3. A browser window will open. Complete your standard login and MFA manually.
 4. Once logged in, the session is saved to `data/mattermost-browser/` and will be reused automatically for headless execution.
+
+---
+
+## 📁 YAML Channel Mapping & Auto-Discovery
+
+Instead of configuring channels one-by-one, use **Auto-Discovery** to fetch all accessible channels across all your teams and generate `channels.yml` with toggles!
+
+### 1. Auto-Discover & Generate `channels.yml`
+Run the sync command:
+```bash
+npm run cli -- sync
+```
+Output:
+```text
+🔍 Discovering all accessible channels from Mattermost...
+
+✅ Channels Synchronized Successfully!
+   File:       channels.yml
+   Discovered: 24 channels across 3 team(s)
+   Status:     24 enabled, 0 disabled
+
+-------------------------------------------------------------
+   🟢 [ENABLED]  town-square          ➔ #town-square (team: engineering-team)
+   🟢 [ENABLED]  engineering          ➔ #engineering (team: engineering-team)
+   🟢 [ENABLED]  backend-dev          ➔ #dotify-backend-dev (team: dot-dev)
+   🟢 [ENABLED]  qa-alerts            ➔ #automated-qa-reports (team: quality-assurance)
+-------------------------------------------------------------
+💡 You can now easily toggle 'enabled: true/false' in 'channels.yml'.
+```
+
+### 2. Enable / Disable Channels in `channels.yml`
+Simply toggle `enabled: false` for channels you do not wish automation to post to:
+```yaml
+default_team: engineering-team
+fallback_channel: town-square
+
+channels:
+  engineering:
+    channel: engineering
+    team: engineering-team
+    enabled: true
+    description: "Main team channel"
+
+  backend-dev:
+    channel: dotify-backend-dev
+    team: dot-dev
+    enabled: true
+
+  # Disabled channel (safe from accidental automation posts)
+  secret-project:
+    channel: secret-project
+    team: confidential-team
+    enabled: false
+
+# Environment overlays (activated via MATTERMOST_ENV or --env)
+environments:
+  prod:
+    backend-dev:
+      channel: dotify-backend-prod
+      team: dot-prod
+```
+> [!NOTE]
+> Re-running `mattermost sync` will automatically discover new channels while **preserving your existing `enabled: false` toggles and custom descriptions**.
+
+### 3. Inspecting Active Aliases
+```bash
+npm run cli -- aliases
+```
 
 ---
 

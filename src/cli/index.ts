@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import * as fs from 'fs';
 import { MattermostAutomationService } from '../application/mattermost/services/automation-service';
+import { ChannelConfigLoader } from '../infrastructure/mattermost/services/channel-config-loader';
 import { loadConfig } from '../config/env';
 import { MattermostError } from '../domain/mattermost/errors';
 
@@ -15,7 +16,9 @@ program
   .option('-u, --url <url>', 'Mattermost server URL')
   .option('-t, --token <token>', 'Mattermost Personal Access Token')
   .option('-p, --provider <provider>', 'Provider to use: "api" or "playwright"')
-  .option('--team-id <teamId>', 'Mattermost Team ID');
+  .option('--team-id <teamId>', 'Mattermost Team ID')
+  .option('--channels-config <path>', 'Path to YAML channel mapping configuration file')
+  .option('--env <environment>', 'Active environment overlay for channel mappings (e.g. dev, staging, prod)');
 
 function getService(cmdOpts: Record<string, unknown> = {}): MattermostAutomationService {
   const globalOpts = program.opts();
@@ -25,6 +28,8 @@ function getService(cmdOpts: Record<string, unknown> = {}): MattermostAutomation
   if (globalOpts.token) overrides.MATTERMOST_TOKEN = globalOpts.token;
   if (globalOpts.provider) overrides.MATTERMOST_PROVIDER = globalOpts.provider;
   if (globalOpts.teamId) overrides.MATTERMOST_TEAM_ID = globalOpts.teamId;
+  if (globalOpts.channelsConfig) overrides.MATTERMOST_CHANNELS_CONFIG = globalOpts.channelsConfig;
+  if (globalOpts.env) overrides.MATTERMOST_ENV = globalOpts.env;
 
   try {
     const config = loadConfig(overrides);
@@ -270,6 +275,47 @@ program
     }
   });
 
+// sync / discover
+program
+  .command('sync')
+  .alias('discover')
+  .description('Auto-discover all accessible Mattermost channels and generate/update channels.yml')
+  .option('-o, --output <file>', 'Output YAML file path', 'channels.yml')
+  .option('--disable-all', 'Set all newly discovered channels to enabled: false')
+  .option('--no-merge', 'Do not merge with existing channels.yml (overwrite)')
+  .action(async (opts) => {
+    const service = getService();
+    try {
+      console.log('\n🔍 Discovering all accessible channels from Mattermost...');
+      const result = await service.syncChannels({
+        filePath: opts.output,
+        defaultEnabled: !opts.disableAll,
+        mergeExisting: opts.merge,
+      });
+
+      if (program.opts().json) {
+        handleOutput(result, true);
+      } else {
+        console.log(`\n✅ Channels Synchronized Successfully!`);
+        console.log(`   File:      ${result.filePath}`);
+        console.log(`   Discovered: ${result.totalDiscovered} channels across ${result.totalTeams} team(s)`);
+        console.log(`   Status:    ${result.enabledCount} enabled, ${result.disabledCount} disabled\n`);
+        console.log('-------------------------------------------------------------');
+        for (const m of result.mappings) {
+          const statusIcon = m.enabled ? '🟢 [ENABLED] ' : '⚪ [DISABLED]';
+          const teamInfo = m.team ? ` (team: ${m.team})` : '';
+          console.log(`   ${statusIcon} ${m.alias.padEnd(20)} ➔ #${m.channel}${teamInfo}`);
+        }
+        console.log('-------------------------------------------------------------');
+        console.log(`💡 You can now easily toggle 'enabled: true/false' in '${result.filePath}'.\n`);
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      await service.close();
+    }
+  });
+
 // login (Playwright interactive setup)
 program
   .command('login')
@@ -278,10 +324,60 @@ program
     const service = getService({ MATTERMOST_PROVIDER: 'playwright', MATTERMOST_HEADLESS: false });
     try {
       await service.interactiveLogin();
+
+      // Post-login automatic channel discovery
+      console.log('\n🔄 Automatically discovering accessible channels...');
+      try {
+        const syncResult = await service.syncChannels();
+        console.log(`✅ Auto-generated channels.yml with ${syncResult.totalDiscovered} channels!`);
+      } catch (syncErr) {
+        console.log(`ℹ️ You can run 'mattermost sync' anytime to discover channels.`);
+      }
     } catch (err) {
       handleError(err);
     } finally {
       await service.close();
+    }
+  });
+
+// aliases
+program
+  .command('aliases')
+  .alias('channels-map')
+  .description('List all channel aliases configured in YAML mapping')
+  .action(async () => {
+    try {
+      const globalOpts = program.opts();
+      const configLoader = new ChannelConfigLoader({
+        configPath: globalOpts.channelsConfig || process.env.MATTERMOST_CHANNELS_CONFIG,
+        envName: globalOpts.env || process.env.MATTERMOST_ENV,
+      });
+
+      const aliases = configLoader.getAllMappings();
+      if (program.opts().json) {
+        handleOutput(aliases, true);
+      } else {
+        console.log(`\n📋 Configured Channel Aliases (${aliases.length} aliases):`);
+        if (configLoader.getDefaultTeam()) {
+          console.log(`   Default Team: ${configLoader.getDefaultTeam()}`);
+        }
+        if (configLoader.getFallbackChannel()) {
+          console.log(`   Fallback Channel: #${configLoader.getFallbackChannel()}`);
+        }
+        console.log('-------------------------------------------------------------');
+        if (aliases.length === 0) {
+          console.log('   No aliases loaded. Create channels.yml to define friendly aliases.');
+        } else {
+          for (const a of aliases) {
+            const teamInfo = a.team ? ` (team: ${a.team})` : '';
+            const desc = a.description ? ` - ${a.description}` : '';
+            console.log(`   • ${a.alias.padEnd(16)} ➔ #${a.channel}${teamInfo}${desc}`);
+          }
+        }
+        console.log('-------------------------------------------------------------\n');
+      }
+    } catch (err) {
+      handleError(err);
     }
   });
 
