@@ -359,9 +359,9 @@ JSON Response:
 
 `mattermost-agent` includes a built-in **MCP Server** over standard I/O (`stdio`), allowing AI coding assistants and agents (**Cursor**, **Claude Desktop**, **Antigravity**, **Windsurf**, **Claude Code**, etc.) to directly read and send Mattermost messages as your personal user!
 
-### ⚙️ Client Configuration
+### ⚙️ Client Configurations
 
-#### 1. Cursor IDE (`.cursor/mcp.json` or Global MCP Settings)
+#### 1. Cursor IDE (`.cursor/mcp.json` or Settings > MCP)
 ```json
 {
   "mcpServers": {
@@ -379,12 +379,58 @@ JSON Response:
 ```
 
 #### 2. Claude Desktop (`claude_desktop_config.json`)
+* **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+* **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 ```json
 {
   "mcpServers": {
     "mattermost": {
-      "command": "npx",
-      "args": ["-y", "tsx", "/ABSOLUTE/PATH/TO/mattermost-agent/src/mcp/index.ts"]
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/mattermost-agent/dist/mcp/index.js"]
+    }
+  }
+}
+```
+
+#### 3. Google Antigravity / Gemini CLI (`~/.gemini/config/mcp_config.json`)
+```json
+{
+  "mcpServers": {
+    "mattermost": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/mattermost-agent/dist/mcp/index.js"]
+    }
+  }
+}
+```
+
+#### 4. Windsurf IDE (`~/.codeium/windsurf/mcp_config.json`)
+```json
+{
+  "mcpServers": {
+    "mattermost": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/mattermost-agent/dist/mcp/index.js"]
+    }
+  }
+}
+```
+
+#### 5. Claude Code CLI
+```bash
+claude mcp add mattermost -- node /ABSOLUTE/PATH/TO/mattermost-agent/dist/mcp/index.js
+```
+
+#### 6. VS Code (Cline / Roo Code Extensions)
+Add to your extension settings (`cline_mcp_settings.json`):
+```json
+{
+  "mcpServers": {
+    "mattermost": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/mattermost-agent/dist/mcp/index.js"],
+      "disabled": false,
+      "autoApprove": []
     }
   }
 }
