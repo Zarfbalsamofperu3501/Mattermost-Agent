@@ -8,10 +8,12 @@ const state = {
   user: null,
   channels: [],
   currentChannel: 'town-square',
+  messages: [],
   threads: [],
   cronJobs: [],
   activeCodeLang: 'curl',
   theme: 'dark',
+  currentChatView: 'chat', // 'chat' or 'threads'
 };
 
 // --- Initialization ---
@@ -23,6 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchChannels();
   fetchCronJobs();
   initForms();
+  initChatView();
+  initCronModal();
   initApiPlayground();
 });
 
@@ -53,7 +57,6 @@ function initNavigation() {
     });
   });
 
-  // Handle hash changes for direct deep linking (#api, #channels, #cron)
   if (window.location.hash) {
     const hashTab = window.location.hash.replace('#', '');
     if (document.getElementById(`view-${hashTab}`)) {
@@ -74,7 +77,7 @@ function switchTab(tabId) {
   window.location.hash = tabId;
 
   if (tabId === 'channels') {
-    loadChannelThreads(state.currentChannel);
+    loadChannelContent(state.currentChannel);
   } else if (tabId === 'cron') {
     fetchCronJobs();
   }
@@ -108,19 +111,28 @@ function initSSE() {
   eventSource.addEventListener('message:sent', (e) => {
     const data = JSON.parse(e.data);
     addLog(`[Message Sent] #${data.channel}: "${data.message.slice(0, 40)}" (from: ${data.from || 'default'})`, 'log-success');
+    if (state.currentChannel === data.channel) {
+      loadChannelContent(state.currentChannel);
+    }
   });
 
   eventSource.addEventListener('message:replied', (e) => {
     const data = JSON.parse(e.data);
     addLog(`[Thread Reply] #${data.channel} [${data.rootId}]: "${data.message.slice(0, 40)}"`, 'log-success');
     if (state.currentChannel === data.channel) {
-      loadChannelThreads(state.currentChannel);
+      loadChannelContent(state.currentChannel);
     }
   });
 
   eventSource.addEventListener('cron:executed', (e) => {
     const data = JSON.parse(e.data);
     addLog(`[Cron Job] '${data.jobName}' executed successfully`, 'log-info');
+    fetchCronJobs();
+  });
+
+  eventSource.addEventListener('cron:saved', (e) => {
+    const data = JSON.parse(e.data);
+    addLog(`[Cron Config] '${data.jobName}' configuration updated`, 'log-info');
     fetchCronJobs();
   });
 }
@@ -211,24 +223,36 @@ async function fetchChannels() {
     const enabledCount = state.channels.filter((c) => c.enabled).length;
     document.getElementById('metric-channels-enabled').textContent = `${enabledCount} enabled`;
 
-    renderChannelSelector();
+    populateChannelSelects();
     renderChannelList();
   } catch (err) {
     console.error('Failed to load channels:', err);
   }
 }
 
-function renderChannelSelector() {
-  const select = document.getElementById('quick-send-channel');
-  select.innerHTML = '';
+function populateChannelSelects() {
+  const selects = [
+    document.getElementById('quick-send-channel'),
+    document.getElementById('cron-modal-channel'),
+  ];
 
-  state.channels.forEach((c) => {
-    const opt = document.createElement('option');
-    opt.value = c.alias || c.channel;
-    opt.textContent = `#${c.alias} (${c.displayName || c.channel})`;
-    if (c.alias === 'town-square') opt.selected = true;
-    select.appendChild(opt);
+  selects.forEach((select) => {
+    if (!select) return;
+    const currentVal = select.value;
+    select.innerHTML = '';
+
+    state.channels.forEach((c) => {
+      const opt = document.createElement('option');
+      opt.value = c.alias || c.channel;
+      opt.textContent = `#${c.alias} (${c.displayName || c.channel})`;
+      if (c.alias === currentVal || (!currentVal && c.alias === 'town-square')) {
+        opt.selected = true;
+      }
+      select.appendChild(opt);
+    });
   });
+
+  renderApiParams();
 }
 
 function renderChannelList() {
@@ -256,12 +280,12 @@ function renderChannelList() {
     const statusDot = c.enabled ? '🟢' : '⚪';
     item.innerHTML = `
       <span>${statusDot} #${c.alias}</span>
-      <span class="text-muted text-xs">${c.displayName ? c.displayName.slice(0, 18) : ''}</span>
+      <span class="text-muted text-xs">${c.displayName ? c.displayName.slice(0, 16) : ''}</span>
     `;
     item.addEventListener('click', () => {
       state.currentChannel = c.alias;
       renderChannelList();
-      loadChannelThreads(c.alias);
+      loadChannelContent(c.alias);
     });
     container.appendChild(item);
   });
@@ -283,55 +307,297 @@ document.getElementById('btn-sync-channels').addEventListener('click', async () 
   }
 });
 
-// --- Thread Explorer ---
+// --- Chat & Thread Explorer ---
+function initChatView() {
+  const btnChat = document.getElementById('btn-view-chat');
+  const btnThreads = document.getElementById('btn-view-threads');
+  const chatContainer = document.getElementById('chat-messages-container');
+  const threadsContainer = document.getElementById('threads-container');
+
+  btnChat.addEventListener('click', () => {
+    state.currentChatView = 'chat';
+    btnChat.classList.add('active');
+    btnThreads.classList.remove('active');
+    chatContainer.style.display = 'flex';
+    threadsContainer.style.display = 'none';
+    loadChannelMessages(state.currentChannel);
+  });
+
+  btnThreads.addEventListener('click', () => {
+    state.currentChatView = 'threads';
+    btnThreads.classList.add('active');
+    btnChat.classList.remove('active');
+    chatContainer.style.display = 'none';
+    threadsContainer.style.display = 'flex';
+    loadChannelThreads(state.currentChannel);
+  });
+
+  document.getElementById('btn-refresh-chat').addEventListener('click', () => {
+    loadChannelContent(state.currentChannel);
+  });
+
+  document.getElementById('chat-search-input').addEventListener('input', () => {
+    if (state.currentChatView === 'chat') {
+      renderChatBubbles();
+    } else {
+      renderThreadCards();
+    }
+  });
+
+  document.getElementById('btn-cancel-thread-reply').addEventListener('click', () => {
+    document.getElementById('chat-target-root-id').value = '';
+    document.getElementById('thread-reply-indicator').style.display = 'none';
+  });
+
+  // Chat send form
+  document.getElementById('form-chat-send').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const rootId = document.getElementById('chat-target-root-id').value;
+    const message = document.getElementById('chat-input-message').value.trim();
+    const from = document.getElementById('chat-input-from').value.trim();
+
+    if (!message) return;
+
+    showToast(`Sending to #${state.currentChannel}...`, 'info');
+
+    try {
+      let res;
+      if (rootId) {
+        res = await fetch('/api/messages/reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel: state.currentChannel, rootId, message, from }),
+        });
+      } else {
+        res = await fetch('/api/messages/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel: state.currentChannel, message, from }),
+        });
+      }
+
+      const data = await res.json();
+      if (res.ok) {
+        showToast(rootId ? 'Thread reply posted!' : 'Message sent!', 'success');
+        document.getElementById('chat-input-message').value = '';
+        document.getElementById('chat-target-root-id').value = '';
+        document.getElementById('thread-reply-indicator').style.display = 'none';
+        loadChannelContent(state.currentChannel);
+      } else {
+        showToast(`Send failed: ${data.error}`, 'error');
+      }
+    } catch {
+      showToast('Network error while sending message', 'error');
+    }
+  });
+}
+
+function loadChannelContent(channelName) {
+  const currentCh = state.channels.find((c) => c.alias === channelName || c.channel === channelName);
+  document.getElementById('current-channel-name').textContent = `#${channelName}`;
+  document.getElementById('current-channel-desc').textContent = currentCh?.description || `${channelName} channel`;
+
+  if (state.currentChatView === 'chat') {
+    loadChannelMessages(channelName);
+  } else {
+    loadChannelThreads(channelName);
+  }
+}
+
+async function loadChannelMessages(channelName) {
+  const container = document.getElementById('chat-messages-container');
+  container.innerHTML = '<div class="loading-state">Loading chat history...</div>';
+
+  try {
+    const res = await fetch(`/api/messages/history?channel=${encodeURIComponent(channelName)}&limit=40`);
+    const data = await res.json();
+
+    // Reverse so oldest appears top, newest bottom like authentic chat
+    state.messages = (data.posts || []).reverse();
+    renderChatBubbles();
+  } catch (err) {
+    container.innerHTML = '<div class="empty-state text-danger">Failed to load chat history.</div>';
+  }
+}
+
+function renderChatBubbles() {
+  const container = document.getElementById('chat-messages-container');
+  const searchInput = document.getElementById('chat-search-input');
+  const query = searchInput.value.toLowerCase();
+
+  const filtered = state.messages.filter((m) => (m.message || '').toLowerCase().includes(query));
+
+  container.innerHTML = '';
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-state">No messages found in this channel.</div>';
+    return;
+  }
+
+  filtered.forEach((msg) => {
+    const isMe = state.user && (msg.userId === state.user.id || msg.username === state.user.username);
+    const timeStr = msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const username = msg.username || (isMe ? `@${state.user.username}` : `@${msg.userId ? msg.userId.slice(0, 8) : 'user'}`);
+    const initials = (username.replace('@', '')[0] || 'U').toUpperCase();
+
+    // Check for attribution footer
+    let displayMessage = msg.message || '';
+    let fromAttribution = '';
+    const fromMatch = displayMessage.match(/\n\n_~ from ([^_]+)_$/);
+    if (fromMatch) {
+      fromAttribution = fromMatch[1];
+      displayMessage = displayMessage.replace(/\n\n_~ from [^_]+_$/, '');
+    }
+
+    const row = document.createElement('div');
+    row.className = `chat-bubble-row ${isMe ? 'outgoing' : 'incoming'}`;
+    row.innerHTML = `
+      <div class="chat-avatar">${initials}</div>
+      <div class="chat-bubble-card">
+        <div class="chat-bubble-header">
+          <span class="chat-sender-name">${escapeHtml(username)}</span>
+          <span class="chat-bubble-time">${timeStr}</span>
+        </div>
+        <div class="chat-bubble-text">${escapeHtml(displayMessage)}</div>
+        <div class="chat-bubble-footer">
+          ${fromAttribution ? `<span class="attribution-tag">~ from ${escapeHtml(fromAttribution)}</span>` : '<span></span>'}
+          <button class="btn-reply-thread-link" data-id="${msg.id}">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+            <span>Reply in Thread</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    row.querySelector('.btn-reply-thread-link').addEventListener('click', () => {
+      document.getElementById('chat-target-root-id').value = msg.id;
+      document.getElementById('reply-indicator-text').textContent = `Replying to message by ${username}`;
+      document.getElementById('thread-reply-indicator').style.display = 'flex';
+      document.getElementById('chat-input-message').focus();
+    });
+
+    container.appendChild(row);
+  });
+
+  container.scrollTop = container.scrollHeight;
+}
+
 async function loadChannelThreads(channelName) {
   const container = document.getElementById('threads-container');
-  document.getElementById('current-channel-name').textContent = `#${channelName}`;
-
   container.innerHTML = '<div class="loading-state">Loading active threads...</div>';
 
   try {
     const res = await fetch(`/api/threads?channel=${encodeURIComponent(channelName)}&limit=30`);
     const data = await res.json();
-
     state.threads = data.threads || [];
-    container.innerHTML = '';
-
-    if (state.threads.length === 0) {
-      container.innerHTML = '<div class="empty-state">No active threads in this channel.</div>';
-      return;
-    }
-
-    state.threads.forEach((t, idx) => {
-      const card = document.createElement('div');
-      card.className = 'thread-item-card';
-      const badgeText = t.shortcut || `:${idx + 1}`;
-      card.innerHTML = `
-        <div class="thread-item-meta">
-          <span class="badge badge-muted">${badgeText} • ${t.relativeTime}</span>
-          <span class="text-xs">${t.replyCount} ${t.replyCount === 1 ? 'reply' : 'replies'}</span>
-        </div>
-        <div class="thread-item-body">${escapeHtml(t.messagePreview)}</div>
-      `;
-
-      card.addEventListener('click', () => {
-        document.getElementById('reply-root-id').value = badgeText;
-        document.getElementById('reply-message').focus();
-        showToast(`Targeted thread ${badgeText}`, 'info');
-      });
-
-      container.appendChild(card);
-    });
+    renderThreadCards();
   } catch (err) {
     container.innerHTML = '<div class="empty-state text-danger">Failed to load threads for this channel.</div>';
   }
 }
 
-document.getElementById('btn-refresh-threads').addEventListener('click', () => {
-  loadChannelThreads(state.currentChannel);
-});
+function renderThreadCards() {
+  const container = document.getElementById('threads-container');
+  const searchInput = document.getElementById('chat-search-input');
+  const query = searchInput.value.toLowerCase();
 
-// --- Cron Scheduler ---
+  const filtered = state.threads.filter((t) => (t.messagePreview || '').toLowerCase().includes(query));
+
+  container.innerHTML = '';
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-state">No active threads in this channel.</div>';
+    return;
+  }
+
+  filtered.forEach((t, idx) => {
+    const card = document.createElement('div');
+    card.className = 'thread-item-card';
+    const badgeText = t.shortcut || `:${idx + 1}`;
+    card.innerHTML = `
+      <div class="thread-item-meta">
+        <span class="badge badge-muted">${badgeText} • ${t.relativeTime}</span>
+        <span class="text-xs">${t.replyCount} ${t.replyCount === 1 ? 'reply' : 'replies'}</span>
+      </div>
+      <div class="thread-item-body">${escapeHtml(t.messagePreview)}</div>
+    `;
+
+    card.addEventListener('click', () => {
+      document.getElementById('chat-target-root-id').value = badgeText;
+      document.getElementById('reply-indicator-text').textContent = `Replying to thread ${badgeText}`;
+      document.getElementById('thread-reply-indicator').style.display = 'flex';
+      document.getElementById('chat-input-message').focus();
+      showToast(`Targeted thread ${badgeText}`, 'info');
+    });
+
+    container.appendChild(card);
+  });
+}
+
+// --- Cron Modal & Scheduler ---
+function initCronModal() {
+  const modal = document.getElementById('modal-cron');
+  const btnNew = document.getElementById('btn-new-cron');
+  const btnClose = document.getElementById('btn-close-modal-cron');
+  const btnCancel = document.getElementById('btn-cancel-modal-cron');
+  const presetSelect = document.getElementById('cron-modal-preset');
+  const scheduleInput = document.getElementById('cron-modal-schedule');
+  const form = document.getElementById('form-modal-cron');
+
+  btnNew.addEventListener('click', () => {
+    document.getElementById('modal-cron-title').textContent = 'Configure New Cron Job';
+    form.reset();
+    document.getElementById('cron-modal-schedule').value = '0 9 * * 1-5';
+    document.getElementById('cron-modal-from').value = 'Daily Reminder';
+    document.getElementById('cron-modal-enabled').checked = true;
+    modal.style.display = 'flex';
+  });
+
+  const closeModal = () => (modal.style.display = 'none');
+  btnClose.addEventListener('click', closeModal);
+  btnCancel.addEventListener('click', closeModal);
+
+  presetSelect.addEventListener('change', () => {
+    if (presetSelect.value !== 'custom') {
+      scheduleInput.value = presetSelect.value;
+    }
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+      name: document.getElementById('cron-modal-name').value.trim(),
+      schedule: document.getElementById('cron-modal-schedule').value.trim(),
+      channel: document.getElementById('cron-modal-channel').value,
+      message: document.getElementById('cron-modal-message').value,
+      from: document.getElementById('cron-modal-from').value.trim() || undefined,
+      timezone: document.getElementById('cron-modal-timezone').value,
+      enabled: document.getElementById('cron-modal-enabled').checked,
+      description: document.getElementById('cron-modal-desc').value.trim() || undefined,
+    };
+
+    showToast(`Saving cron job '${payload.name}'...`, 'info');
+
+    try {
+      const res = await fetch('/api/cron/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Cron job '${payload.name}' saved successfully!`, 'success');
+        closeModal();
+        fetchCronJobs();
+      } else {
+        showToast(`Failed to save cron: ${data.error}`, 'error');
+      }
+    } catch {
+      showToast('Network error while saving cron job', 'error');
+    }
+  });
+}
+
 async function fetchCronJobs() {
   try {
     const res = await fetch('/api/cron');
@@ -356,7 +622,7 @@ function renderCronTable() {
   tbody.innerHTML = '';
 
   if (state.cronJobs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No cron jobs configured. Create <code>cron.yml</code> to add schedules.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No cron jobs configured. Click <strong>New Cron Job</strong> above to create one.</td></tr>';
     return;
   }
 
@@ -377,6 +643,7 @@ function renderCronTable() {
       <td>
         <div style="display:flex;gap:6px;">
           <button class="btn btn-sm btn-primary btn-run-cron" data-name="${job.name}">Run Now</button>
+          <button class="btn btn-sm btn-secondary btn-edit-cron" data-name="${job.name}">Edit</button>
           <button class="btn btn-sm btn-secondary btn-toggle-cron" data-name="${job.name}" data-enabled="${!job.enabled}">
             ${job.enabled ? 'Disable' : 'Enable'}
           </button>
@@ -386,9 +653,23 @@ function renderCronTable() {
 
     tr.querySelector('.btn-run-cron').addEventListener('click', () => triggerCronJob(job.name));
     tr.querySelector('.btn-toggle-cron').addEventListener('click', () => toggleCronJob(job.name, !job.enabled));
+    tr.querySelector('.btn-edit-cron').addEventListener('click', () => openEditCronModal(job));
 
     tbody.appendChild(tr);
   });
+}
+
+function openEditCronModal(job) {
+  document.getElementById('modal-cron-title').textContent = `Edit Cron Job: ${job.name}`;
+  document.getElementById('cron-modal-name').value = job.name;
+  document.getElementById('cron-modal-schedule').value = job.schedule;
+  document.getElementById('cron-modal-channel').value = job.channel;
+  document.getElementById('cron-modal-message').value = job.message;
+  document.getElementById('cron-modal-from').value = job.from || '';
+  document.getElementById('cron-modal-timezone').value = job.timezone || 'Asia/Jakarta';
+  document.getElementById('cron-modal-enabled').checked = job.enabled;
+  document.getElementById('cron-modal-desc').value = job.description || '';
+  document.getElementById('modal-cron').style.display = 'flex';
 }
 
 async function triggerCronJob(jobName) {
@@ -431,7 +712,6 @@ document.getElementById('btn-refresh-cron').addEventListener('click', fetchCronJ
 
 // --- Forms Management ---
 function initForms() {
-  // Quick Send Form
   document.getElementById('form-quick-send').addEventListener('submit', async (e) => {
     e.preventDefault();
     const channel = document.getElementById('quick-send-channel').value;
@@ -458,34 +738,6 @@ function initForms() {
     }
   });
 
-  // Thread Reply Form
-  document.getElementById('form-thread-reply').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const rootId = document.getElementById('reply-root-id').value;
-    const message = document.getElementById('reply-message').value;
-    const from = document.getElementById('reply-from').value;
-
-    showToast(`Replying to ${rootId}...`, 'info');
-
-    try {
-      const res = await fetch('/api/messages/reply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channel: state.currentChannel, rootId, message, from }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast('Reply posted successfully!', 'success');
-        document.getElementById('reply-message').value = '';
-        loadChannelThreads(state.currentChannel);
-      } else {
-        showToast(`Reply failed: ${data.error}`, 'error');
-      }
-    } catch {
-      showToast('Network error while posting reply', 'error');
-    }
-  });
-
   document.getElementById('btn-quick-send').addEventListener('click', () => {
     switchTab('overview');
     document.getElementById('quick-send-message').focus();
@@ -498,7 +750,7 @@ const API_ENDPOINTS = {
     method: 'POST',
     path: '/api/messages/send',
     params: [
-      { name: 'channel', type: 'string', default: 'town-square', required: true },
+      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
       { name: 'message', type: 'string', default: 'Hello from REST API!', required: true },
       { name: 'from', type: 'string', default: 'Google Antigravity', required: false },
     ],
@@ -507,7 +759,7 @@ const API_ENDPOINTS = {
     method: 'POST',
     path: '/api/messages/reply',
     params: [
-      { name: 'channel', type: 'string', default: 'town-square', required: true },
+      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
       { name: 'rootId', type: 'string', default: ':1', required: true },
       { name: 'message', type: 'string', default: 'Approved and merged!', required: true },
       { name: 'from', type: 'string', default: 'AI Agent', required: false },
@@ -522,7 +774,7 @@ const API_ENDPOINTS = {
     method: 'GET',
     path: '/api/threads',
     params: [
-      { name: 'channel', type: 'string', default: 'town-square', required: true },
+      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
       { name: 'limit', type: 'number', default: '20', required: false },
     ],
   },
@@ -530,7 +782,7 @@ const API_ENDPOINTS = {
     method: 'GET',
     path: '/api/messages/history',
     params: [
-      { name: 'channel', type: 'string', default: 'town-square', required: true },
+      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
       { name: 'limit', type: 'number', default: '10', required: false },
     ],
   },
@@ -543,6 +795,17 @@ const API_ENDPOINTS = {
     method: 'POST',
     path: '/api/cron/run',
     params: [{ name: 'jobName', type: 'string', default: 'daily-standup', required: true }],
+  },
+  save_cron: {
+    method: 'POST',
+    path: '/api/cron/save',
+    params: [
+      { name: 'name', type: 'string', default: 'daily-standup', required: true },
+      { name: 'schedule', type: 'string', default: '0 9 * * 1-5', required: true },
+      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
+      { name: 'message', type: 'string', default: 'Daily standup reminder', required: true },
+      { name: 'from', type: 'string', default: 'Daily Bot', required: false },
+    ],
   },
   get_status: {
     method: 'GET',
@@ -576,6 +839,7 @@ function initApiPlayground() {
 
 function renderApiParams() {
   const select = document.getElementById('api-endpoint-select');
+  if (!select) return;
   const endpointKey = select.value;
   const def = API_ENDPOINTS[endpointKey];
   const container = document.getElementById('api-params-container');
@@ -588,11 +852,29 @@ function renderApiParams() {
     def.params.forEach((param) => {
       const group = document.createElement('div');
       group.className = 'form-group';
-      group.innerHTML = `
-        <label>${param.name} ${param.required ? '<span style="color:var(--danger)">*</span>' : ''}</label>
-        <input type="text" class="form-control api-input" data-param="${param.name}" value="${param.default}">
-      `;
-      group.querySelector('input').addEventListener('input', updateGeneratedCode);
+
+      if (param.type === 'channel_select') {
+        // Searchable Channel Dropdown in API Playground
+        let optionsHtml = '';
+        state.channels.forEach((c) => {
+          optionsHtml += `<option value="${c.alias}" ${c.alias === param.default ? 'selected' : ''}>#${c.alias} (${c.displayName || c.channel})</option>`;
+        });
+
+        group.innerHTML = `
+          <label>${param.name} (Searchable Channel) ${param.required ? '<span style="color:var(--danger)">*</span>' : ''}</label>
+          <select class="form-control api-input" data-param="${param.name}">
+            ${optionsHtml || `<option value="${param.default}">${param.default}</option>`}
+          </select>
+        `;
+        group.querySelector('select').addEventListener('change', updateGeneratedCode);
+      } else {
+        group.innerHTML = `
+          <label>${param.name} ${param.required ? '<span style="color:var(--danger)">*</span>' : ''}</label>
+          <input type="text" class="form-control api-input" data-param="${param.name}" value="${param.default}">
+        `;
+        group.querySelector('input').addEventListener('input', updateGeneratedCode);
+      }
+
       container.appendChild(group);
     });
   }
@@ -644,7 +926,7 @@ function updateGeneratedCode() {
       code = `# Python (requests)\nimport requests\n\npayload = ${JSON.stringify(values, null, 4)}\nres = requests.post("${baseUrl}${def.path}", json=payload)\nprint(res.json())`;
     }
   } else if (lang === 'go') {
-    code = `// Go (net/http)\npackage main\n\nimport (\n    "bytes"\n    "encoding/json"\n    "fmt"\n    "net/http"\n)\n\nfunc main() {\n    // Execute request to ${def.path}\n    // See full docs at ${baseUrl}/api/openapi.json\n}`;
+    code = `// Go (net/http)\npackage main\n\nimport (\n    "bytes"\n    "encoding/json"\n    "fmt"\n    "net/http"\n)\n\nfunc main() {\n    // Request to ${def.path}\n    // See full OpenAPI spec at ${baseUrl}/api/openapi.json\n}`;
   } else if (lang === 'php') {
     code = `<?php\n// PHP cURL\n$ch = curl_init("${baseUrl}${def.path}");\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\n${def.method === 'POST' ? `curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(${JSON.stringify(values)}));\ncurl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);\n` : ''}$res = curl_exec($ch);\ncurl_close($ch);\necho $res;`;
   }

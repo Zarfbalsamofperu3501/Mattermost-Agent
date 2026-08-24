@@ -445,6 +445,43 @@ export class MattermostHttpServer {
       return;
     }
 
+    if ((pathname === '/api/cron/save' || pathname === '/api/cron/add') && method === 'POST') {
+      const body = await this.parseBody<{
+        name: string;
+        schedule: string;
+        channel: string;
+        message: string;
+        from?: string;
+        rootId?: string;
+        timezone?: string;
+        enabled?: boolean;
+        description?: string;
+      }>(req);
+
+      if (!body.name || !body.schedule || !body.channel || !body.message) {
+        this.sendJson(res, 400, { success: false, error: 'name, schedule, channel, and message are required' });
+        return;
+      }
+
+      const scheduler = this.automationService.getCronScheduler();
+      const configLoader = scheduler.getConfigLoader();
+      configLoader.setJob(body.name, {
+        schedule: body.schedule,
+        channel: body.channel,
+        message: body.message,
+        from: body.from,
+        rootId: body.rootId,
+        timezone: body.timezone,
+        enabled: body.enabled !== false,
+        description: body.description,
+      });
+      configLoader.saveToFile();
+
+      this.broadcast('cron:saved', { jobName: body.name });
+      this.sendJson(res, 200, { success: true, message: `Cron job '${body.name}' saved successfully.` });
+      return;
+    }
+
     // 8. OpenAPI Specification Endpoint
     if (pathname === '/api/openapi.json' && method === 'GET') {
       this.sendJson(res, 200, this.getOpenApiSpec());
