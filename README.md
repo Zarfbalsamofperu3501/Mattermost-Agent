@@ -17,6 +17,7 @@
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-yaml-channel-mapping">Channel Mapping</a> •
   <a href="#-cli-reference">CLI Reference</a> •
+  <a href="#-scheduled-cron-jobs">Cron Jobs</a> •
   <a href="#-model-context-protocol-mcp">MCP Server (AI Agents)</a> •
   <a href="#-typescript-sdk">TypeScript SDK</a> •
   <a href="#-security">Security</a> •
@@ -355,6 +356,62 @@ JSON Response:
 
 ---
 
+## ⏰ Scheduled Cron Jobs
+
+`mattermost-agent` includes a declarative **Cron Scheduler Engine** for running recurring reminders, automated standup prompts, healthchecks, and periodic team syncs directly under your personal account.
+
+### 1. Configuration (`cron.yml`)
+Create a `cron.yml` file (template available at `cron.example.yml`):
+
+```yaml
+default_timezone: Asia/Jakarta
+
+jobs:
+  # Daily standup prompt every Mon-Fri at 09:00 WIB
+  daily-standup:
+    schedule: "0 9 * * 1-5"
+    channel: per-fe-an
+    message: "Selamat pagi rekan-rekan! Jangan lupa isi daily standup hari ini ya."
+    from: "Daily Reminder"
+    enabled: true
+    timezone: Asia/Jakarta
+    description: "Daily engineering standup prompt"
+
+  # Weekly demo sync reminder every Friday at 16:00 WIB
+  weekly-demo-reminder:
+    schedule: "0 16 * * 5"
+    channel: town-square
+    message: "Reminder: Demo sprint & weekly sync akan dimulai dalam 30 menit."
+    from: "Sprint Bot"
+    enabled: true
+
+  # Hourly healthcheck ping (disabled by default)
+  healthcheck:
+    schedule: "0 * * * *"
+    channel: devops
+    message: "Routine healthcheck ping."
+    enabled: false
+```
+
+### 2. CLI Cron Management
+
+```bash
+# List all configured jobs, schedules, and next calculated run times:
+npm run cron:list
+
+# Start the continuous scheduler daemon worker:
+npm run cron:start
+
+# Trigger an immediate single test run of a job:
+npm run cli -- cron run daily-standup
+
+# Enable or disable a job dynamically in cron.yml:
+npm run cli -- cron enable healthcheck
+npm run cli -- cron disable healthcheck
+```
+
+---
+
 ## 🤖 Model Context Protocol (MCP) Server for AI Agents
 
 `mattermost-agent` includes a built-in **MCP Server** over standard I/O (`stdio`), allowing AI coding assistants and agents (**Cursor**, **Claude Desktop**, **Antigravity**, **Windsurf**, **Claude Code**, etc.) to directly read and send Mattermost messages as your personal user!
@@ -447,6 +504,9 @@ Add to your extension settings (`cline_mcp_settings.json`):
 | `mattermost_reply_thread` | Reply to a thread via shortcut (`:1`, `:latest`), keyword (`find`), permalink, or ID. |
 | `mattermost_read_channel` | Read recent channel posts and thread replies. |
 | `mattermost_sync_channels` | Auto-discover all channels across teams and sync to `channels.yml`. |
+| `mattermost_list_cron_jobs` | List configured cron jobs, schedules, and next run calculations. |
+| `mattermost_run_cron_job` | Trigger an immediate test execution of a specific cron job. |
+| `mattermost_toggle_cron_job` | Enable or disable a cron job dynamically in `cron.yml`. |
 
 ---
 

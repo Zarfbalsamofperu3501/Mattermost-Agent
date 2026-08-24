@@ -1,0 +1,46 @@
+# ==============================================================================
+# Mattermost Cron Jobs Configuration
+# ==============================================================================
+# Schedule recurring messages, daily standups, healthchecks, and reminders.
+# Cron syntax:
+#   * * * * *
+#   │ │ │ │ │
+#   │ │ │ │ └── Day of Week (0 - 6) (0 = Sunday, 1-5 = Mon-Fri)
+#   │ │ │ └──── Month (1 - 12)
+#   │ │ └────── Day of Month (1 - 31)
+#   │ └──────── Hour (0 - 23)
+#   └────────── Minute (0 - 59)
+# ==============================================================================
+
+default_timezone: Asia/Jakarta
+
+jobs:
+  # Daily Standup Reminder (Mon - Fri at 09:00 WIB)
+  daily-standup:
+    schedule: "0 9 * * 1-5"
+    channel: per-fe-an
+    message: "Selamat pagi rekan-rekan! Jangan lupa isi daily standup hari ini ya."
+    from: "Daily Reminder"
+    enabled: true
+    timezone: Asia/Jakarta
+    description: "Daily standup reminder for engineering team"
+
+  # Weekly Demo & Retro Reminder (Friday at 16:00 WIB)
+  weekly-demo-reminder:
+    schedule: "0 16 * * 5"
+    channel: town-square
+    message: "Reminder: Demo sprint & weekly sync akan dimulai dalam 30 menit."
+    from: "Sprint Automation"
+    enabled: true
+    timezone: Asia/Jakarta
+    description: "Weekly sprint demo notification"
+
+  # Hourly Healthcheck / Heartbeat (Disabled by default)
+  pipeline-healthcheck:
+    schedule: "0 * * * *"
+    channel: devops
+    message: "Routine automated healthcheck ping."
+    from: "Healthcheck Bot"
+    enabled: false
+    timezone: UTC
+    description: "Hourly system check"
