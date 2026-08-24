@@ -1,5 +1,5 @@
 // ==============================================================================
-// Mattermost Agent Web UI Client Application (Baileys.wiki-style)
+// Mattermost Agent — High-Agency Anti-Slop Frontend Controller (Taste Skill)
 // ==============================================================================
 
 const state = {
@@ -16,10 +16,11 @@ const state = {
   currentChatView: 'chat', // 'chat' or 'threads'
 };
 
-// --- Initialization ---
+// --- Lifecycle Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initNavigation();
+  initKeyboardShortcuts();
   initSSE();
   fetchStatus();
   fetchChannels();
@@ -47,9 +48,9 @@ function setTheme(theme) {
   localStorage.setItem('mm_agent_theme', theme);
 }
 
-// --- Navigation Tabs ---
+// --- Navigation Tabs & Deep Links ---
 function initNavigation() {
-  const navButtons = document.querySelectorAll('.nav-item');
+  const navButtons = document.querySelectorAll('.nav-button');
   navButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const tabId = btn.getAttribute('data-tab');
@@ -66,7 +67,7 @@ function initNavigation() {
 }
 
 function switchTab(tabId) {
-  document.querySelectorAll('.nav-item').forEach((btn) => {
+  document.querySelectorAll('.nav-button').forEach((btn) => {
     btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
   });
 
@@ -83,34 +84,55 @@ function switchTab(tabId) {
   }
 }
 
+function initKeyboardShortcuts() {
+  window.addEventListener('keydown', (e) => {
+    // Switch tabs with numbers 1..5 if not focused in an input
+    const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+    if (!isInput && !e.metaKey && !e.ctrlKey) {
+      if (e.key === '1') switchTab('overview');
+      if (e.key === '2') switchTab('channels');
+      if (e.key === '3') switchTab('cron');
+      if (e.key === '4') switchTab('api');
+      if (e.key === '5') switchTab('logs');
+    }
+
+    if (e.key === 'Escape') {
+      const modal = document.getElementById('modal-cron');
+      if (modal && modal.style.display !== 'none') {
+        modal.style.display = 'none';
+      }
+    }
+  });
+}
+
 // --- Server-Sent Events (SSE) Stream ---
 function initSSE() {
   const eventSource = new EventSource('/api/events');
 
   eventSource.addEventListener('auth:starting', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[Auth] ${data.message}`, 'log-info');
+    addLog(`[AUTH] ${data.message}`, 'log-system');
     updateConnectionBadge('logging-in', 'Opening Browser...');
   });
 
   eventSource.addEventListener('auth:success', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[Auth] ${data.message}`, 'log-success');
-    showToast(data.message, 'success');
+    addLog(`[AUTH] Authenticated as @${data.username}`, 'log-sent');
+    showToast(data.message);
     fetchStatus();
     fetchChannels();
   });
 
   eventSource.addEventListener('auth:failed', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[Auth Error] ${data.message}`, 'log-error');
-    showToast(data.message, 'error');
+    addLog(`[ERROR] Auth failed: ${data.message}`, 'log-error');
+    showToast(`Authentication failed: ${data.message}`);
     fetchStatus();
   });
 
   eventSource.addEventListener('message:sent', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[Message Sent] #${data.channel}: "${data.message.slice(0, 40)}" (from: ${data.from || 'default'})`, 'log-success');
+    addLog(`[MSG] #${data.channel}: "${data.message.slice(0, 35)}"`, 'log-sent');
     if (state.currentChannel === data.channel) {
       loadChannelContent(state.currentChannel);
     }
@@ -118,7 +140,7 @@ function initSSE() {
 
   eventSource.addEventListener('message:replied', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[Thread Reply] #${data.channel} [${data.rootId}]: "${data.message.slice(0, 40)}"`, 'log-success');
+    addLog(`[REPLY] #${data.channel} [${data.rootId}]: "${data.message.slice(0, 35)}"`, 'log-sent');
     if (state.currentChannel === data.channel) {
       loadChannelContent(state.currentChannel);
     }
@@ -126,13 +148,13 @@ function initSSE() {
 
   eventSource.addEventListener('cron:executed', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[Cron Job] '${data.jobName}' executed successfully`, 'log-info');
+    addLog(`[CRON] Scheduled job '${data.jobName}' executed`, 'log-sent');
     fetchCronJobs();
   });
 
   eventSource.addEventListener('cron:saved', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[Cron Config] '${data.jobName}' configuration updated`, 'log-info');
+    addLog(`[CONFIG] Cron job '${data.jobName}' updated`, 'log-system');
     fetchCronJobs();
   });
 }
@@ -147,7 +169,6 @@ async function fetchStatus() {
     state.isLoggingIn = data.isLoggingIn;
     state.user = data.user;
 
-    const userProfileCard = document.getElementById('user-profile-card');
     const userAvatar = document.getElementById('user-avatar');
     const userDisplayName = document.getElementById('user-display-name');
     const userHandle = document.getElementById('user-handle');
@@ -165,20 +186,20 @@ async function fetchStatus() {
       userAvatar.textContent = initials;
       userDisplayName.textContent = `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim() || data.user.username;
       userHandle.textContent = `@${data.user.username}`;
-      metricUsername.textContent = data.user.username;
+      metricUsername.textContent = `@${data.user.username}`;
       metricRoles.textContent = data.user.roles || 'system_user';
     } else if (data.isLoggingIn) {
-      updateConnectionBadge('logging-in', 'Logging in via browser...');
+      updateConnectionBadge('logging-in', 'Authenticating in browser...');
       userAvatar.textContent = '...';
       userDisplayName.textContent = 'Authenticating';
-      userHandle.textContent = 'Please complete in browser';
+      userHandle.textContent = 'Complete in Playwright';
       metricUsername.textContent = 'Logging In...';
     } else {
       updateConnectionBadge('disconnected', 'Disconnected');
       userAvatar.textContent = '?';
-      userDisplayName.textContent = 'Not Logged In';
+      userDisplayName.textContent = 'Not Authenticated';
       userHandle.textContent = '@offline';
-      metricUsername.textContent = 'Not Connected';
+      metricUsername.textContent = 'Disconnected';
       metricRoles.textContent = 'Click 1-Click Login';
     }
   } catch (err) {
@@ -189,26 +210,26 @@ async function fetchStatus() {
 function updateConnectionBadge(status, text) {
   const badge = document.getElementById('connection-badge');
   const badgeText = document.getElementById('connection-text');
-  badge.className = `badge badge-${status}`;
+  badge.className = `status-indicator-pill status-${status}`;
   badgeText.textContent = text;
 }
 
 // 1-Click Auto Login Action
 document.getElementById('btn-auto-login').addEventListener('click', async () => {
-  showToast('Launching interactive Playwright browser window...', 'info');
+  showToast('Launching interactive Playwright browser window...');
   updateConnectionBadge('logging-in', 'Opening Browser...');
 
   try {
     const res = await fetch('/api/auth/login', { method: 'POST' });
     const data = await res.json();
     if (res.ok) {
-      showToast(data.message, 'success');
-      addLog('[Auth] Interactive login launched.', 'log-info');
+      showToast(data.message);
+      addLog('[AUTH] Interactive browser window opened.', 'log-system');
     } else {
-      showToast(data.message || 'Login request rejected', 'error');
+      showToast(data.message || 'Login request rejected');
     }
-  } catch (err) {
-    showToast('Failed to connect to login endpoint', 'error');
+  } catch {
+    showToast('Failed to connect to login endpoint');
   }
 });
 
@@ -270,17 +291,20 @@ function renderChannelList() {
   container.innerHTML = '';
 
   if (filtered.length === 0) {
-    container.innerHTML = '<div class="text-muted text-xs p-2">No matching channels found.</div>';
+    container.innerHTML = '<div class="empty-state">No matching channels.</div>';
     return;
   }
 
   filtered.forEach((c) => {
     const item = document.createElement('div');
-    item.className = `channel-list-item ${c.alias === state.currentChannel ? 'active' : ''}`;
-    const statusDot = c.enabled ? '🟢' : '⚪';
+    item.className = `channel-row-item ${c.alias === state.currentChannel ? 'active' : ''}`;
+    const dotClass = c.enabled ? 'channel-dot-enabled' : 'channel-dot-disabled';
     item.innerHTML = `
-      <span>${statusDot} #${c.alias}</span>
-      <span class="text-muted text-xs">${c.displayName ? c.displayName.slice(0, 16) : ''}</span>
+      <div style="display:flex;align-items:center;min-width:0;">
+        <span class="channel-status-dot ${dotClass}"></span>
+        <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">#${c.alias}</span>
+      </div>
+      <span style="font-size:0.68rem;color:var(--text-muted);">${c.displayName ? c.displayName.slice(0, 14) : ''}</span>
     `;
     item.addEventListener('click', () => {
       state.currentChannel = c.alias;
@@ -294,16 +318,16 @@ function renderChannelList() {
 document.getElementById('channel-search-input').addEventListener('input', renderChannelList);
 
 document.getElementById('btn-sync-channels').addEventListener('click', async () => {
-  showToast('Syncing all channels from Mattermost server...', 'info');
+  showToast('Syncing channels from Mattermost server...');
   try {
     const res = await fetch('/api/channels/sync', { method: 'POST' });
     const data = await res.json();
     if (res.ok) {
-      showToast(`Successfully synced ${data.data.totalDiscovered} channels!`, 'success');
+      showToast(`Synced ${data.data.totalDiscovered} channels.`);
       fetchChannels();
     }
-  } catch (err) {
-    showToast('Failed to sync channels', 'error');
+  } catch {
+    showToast('Failed to sync channels');
   }
 });
 
@@ -349,6 +373,15 @@ function initChatView() {
     document.getElementById('thread-reply-indicator').style.display = 'none';
   });
 
+  // Enter to send, Shift+Enter for newline
+  const chatInput = document.getElementById('chat-input-message');
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById('form-chat-send').dispatchEvent(new Event('submit'));
+    }
+  });
+
   // Chat send form
   document.getElementById('form-chat-send').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -357,8 +390,6 @@ function initChatView() {
     const from = document.getElementById('chat-input-from').value.trim();
 
     if (!message) return;
-
-    showToast(`Sending to #${state.currentChannel}...`, 'info');
 
     try {
       let res;
@@ -378,16 +409,16 @@ function initChatView() {
 
       const data = await res.json();
       if (res.ok) {
-        showToast(rootId ? 'Thread reply posted!' : 'Message sent!', 'success');
+        showToast(rootId ? 'Thread reply dispatched.' : 'Message dispatched.');
         document.getElementById('chat-input-message').value = '';
         document.getElementById('chat-target-root-id').value = '';
         document.getElementById('thread-reply-indicator').style.display = 'none';
         loadChannelContent(state.currentChannel);
       } else {
-        showToast(`Send failed: ${data.error}`, 'error');
+        showToast(`Send failed: ${data.error}`);
       }
     } catch {
-      showToast('Network error while sending message', 'error');
+      showToast('Network error while dispatching message.');
     }
   });
 }
@@ -395,7 +426,7 @@ function initChatView() {
 function loadChannelContent(channelName) {
   const currentCh = state.channels.find((c) => c.alias === channelName || c.channel === channelName);
   document.getElementById('current-channel-name').textContent = `#${channelName}`;
-  document.getElementById('current-channel-desc').textContent = currentCh?.description || `${channelName} channel`;
+  document.getElementById('current-channel-desc').textContent = currentCh?.displayName || `${channelName} channel`;
 
   if (state.currentChatView === 'chat') {
     loadChannelMessages(channelName);
@@ -411,12 +442,10 @@ async function loadChannelMessages(channelName) {
   try {
     const res = await fetch(`/api/messages/history?channel=${encodeURIComponent(channelName)}&limit=40`);
     const data = await res.json();
-
-    // Reverse so oldest appears top, newest bottom like authentic chat
     state.messages = (data.posts || []).reverse();
     renderChatBubbles();
-  } catch (err) {
-    container.innerHTML = '<div class="empty-state text-danger">Failed to load chat history.</div>';
+  } catch {
+    container.innerHTML = '<div class="empty-state">Failed to load chat messages.</div>';
   }
 }
 
@@ -430,7 +459,7 @@ function renderChatBubbles() {
   container.innerHTML = '';
 
   if (filtered.length === 0) {
-    container.innerHTML = '<div class="empty-state">No messages found in this channel.</div>';
+    container.innerHTML = '<div class="empty-state">No messages recorded in this channel.</div>';
     return;
   }
 
@@ -440,7 +469,6 @@ function renderChatBubbles() {
     const username = msg.username || (isMe ? `@${state.user.username}` : `@${msg.userId ? msg.userId.slice(0, 8) : 'user'}`);
     const initials = (username.replace('@', '')[0] || 'U').toUpperCase();
 
-    // Check for attribution footer
     let displayMessage = msg.message || '';
     let fromAttribution = '';
     const fromMatch = displayMessage.match(/\n\n_~ from ([^_]+)_$/);
@@ -450,26 +478,26 @@ function renderChatBubbles() {
     }
 
     const row = document.createElement('div');
-    row.className = `chat-bubble-row ${isMe ? 'outgoing' : 'incoming'}`;
+    row.className = `bubble-row ${isMe ? 'outgoing' : 'incoming'}`;
     row.innerHTML = `
-      <div class="chat-avatar">${initials}</div>
-      <div class="chat-bubble-card">
-        <div class="chat-bubble-header">
-          <span class="chat-sender-name">${escapeHtml(username)}</span>
-          <span class="chat-bubble-time">${timeStr}</span>
+      <div class="bubble-avatar">${initials}</div>
+      <div class="bubble-payload">
+        <div class="bubble-meta-row">
+          <span class="bubble-author">${escapeHtml(username)}</span>
+          <span class="bubble-timestamp">${timeStr}</span>
         </div>
-        <div class="chat-bubble-text">${escapeHtml(displayMessage)}</div>
-        <div class="chat-bubble-footer">
-          ${fromAttribution ? `<span class="attribution-tag">~ from ${escapeHtml(fromAttribution)}</span>` : '<span></span>'}
-          <button class="btn-reply-thread-link" data-id="${msg.id}">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
-            <span>Reply in Thread</span>
+        <div class="bubble-body">${escapeHtml(displayMessage)}</div>
+        <div class="bubble-footer-row">
+          ${fromAttribution ? `<span class="bubble-attribution-badge">~ from ${escapeHtml(fromAttribution)}</span>` : '<span></span>'}
+          <button class="btn-inline-reply" data-id="${msg.id}">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+            <span>Reply in thread</span>
           </button>
         </div>
       </div>
     `;
 
-    row.querySelector('.btn-reply-thread-link').addEventListener('click', () => {
+    row.querySelector('.btn-inline-reply').addEventListener('click', () => {
       document.getElementById('chat-target-root-id').value = msg.id;
       document.getElementById('reply-indicator-text').textContent = `Replying to message by ${username}`;
       document.getElementById('thread-reply-indicator').style.display = 'flex';
@@ -491,8 +519,8 @@ async function loadChannelThreads(channelName) {
     const data = await res.json();
     state.threads = data.threads || [];
     renderThreadCards();
-  } catch (err) {
-    container.innerHTML = '<div class="empty-state text-danger">Failed to load threads for this channel.</div>';
+  } catch {
+    container.innerHTML = '<div class="empty-state">Failed to load active threads.</div>';
   }
 }
 
@@ -512,14 +540,14 @@ function renderThreadCards() {
 
   filtered.forEach((t, idx) => {
     const card = document.createElement('div');
-    card.className = 'thread-item-card';
+    card.className = 'thread-summary-card';
     const badgeText = t.shortcut || `:${idx + 1}`;
     card.innerHTML = `
-      <div class="thread-item-meta">
-        <span class="badge badge-muted">${badgeText} • ${t.relativeTime}</span>
-        <span class="text-xs">${t.replyCount} ${t.replyCount === 1 ? 'reply' : 'replies'}</span>
+      <div class="thread-card-header">
+        <span class="thread-id-pill">${badgeText}</span>
+        <span>${t.relativeTime || ''} • ${t.replyCount} replies</span>
       </div>
-      <div class="thread-item-body">${escapeHtml(t.messagePreview)}</div>
+      <div class="thread-card-preview">${escapeHtml(t.messagePreview)}</div>
     `;
 
     card.addEventListener('click', () => {
@@ -527,7 +555,7 @@ function renderThreadCards() {
       document.getElementById('reply-indicator-text').textContent = `Replying to thread ${badgeText}`;
       document.getElementById('thread-reply-indicator').style.display = 'flex';
       document.getElementById('chat-input-message').focus();
-      showToast(`Targeted thread ${badgeText}`, 'info');
+      showToast(`Targeted thread ${badgeText}`);
     });
 
     container.appendChild(card);
@@ -576,8 +604,6 @@ function initCronModal() {
       description: document.getElementById('cron-modal-desc').value.trim() || undefined,
     };
 
-    showToast(`Saving cron job '${payload.name}'...`, 'info');
-
     try {
       const res = await fetch('/api/cron/save', {
         method: 'POST',
@@ -586,14 +612,14 @@ function initCronModal() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`Cron job '${payload.name}' saved successfully!`, 'success');
+        showToast(`Cron job '${payload.name}' saved.`);
         closeModal();
         fetchCronJobs();
       } else {
-        showToast(`Failed to save cron: ${data.error}`, 'error');
+        showToast(`Save failed: ${data.error}`);
       }
     } catch {
-      showToast('Network error while saving cron job', 'error');
+      showToast('Network error while saving cron job.');
     }
   });
 }
@@ -622,29 +648,31 @@ function renderCronTable() {
   tbody.innerHTML = '';
 
   if (state.cronJobs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No cron jobs configured. Click <strong>New Cron Job</strong> above to create one.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="table-empty">No scheduled cron jobs configured. Click <strong>New Cron Job</strong> above.</td></tr>';
     return;
   }
 
   state.cronJobs.forEach((job) => {
     const tr = document.createElement('tr');
-    const statusIcon = job.enabled ? '<span class="badge badge-success">Enabled</span>' : '<span class="badge badge-muted">Disabled</span>';
+    const statusPill = job.enabled
+      ? '<span class="status-indicator-pill status-connected">Enabled</span>'
+      : '<span class="status-indicator-pill status-idle">Disabled</span>';
     const nextRun = job.nextRunAt ? new Date(job.nextRunAt).toLocaleString() : (job.enabled ? 'Pending' : '-');
-    const lastStatus = job.lastStatus === 'success' ? '✅ success' : job.lastStatus === 'failed' ? '❌ failed' : '⏳ never';
+    const lastStatus = job.lastStatus === 'success' ? '✓ success' : job.lastStatus === 'failed' ? '✕ failed' : '— never';
 
     tr.innerHTML = `
-      <td>${statusIcon}</td>
-      <td><strong>${job.name}</strong></td>
-      <td><code>${job.schedule}</code> (${job.timezone})</td>
-      <td>#${job.channel}</td>
-      <td>${job.from || '<em>default</em>'}</td>
-      <td>${nextRun}</td>
-      <td><span class="text-xs">${lastStatus} (${job.executionCount} runs)</span></td>
+      <td>${statusPill}</td>
+      <td><strong>${escapeHtml(job.name)}</strong></td>
+      <td><code>${escapeHtml(job.schedule)}</code> (${escapeHtml(job.timezone)})</td>
+      <td>#${escapeHtml(job.channel)}</td>
+      <td>${escapeHtml(job.from || 'default')}</td>
+      <td style="font-family:var(--font-mono);font-size:0.75rem;">${nextRun}</td>
+      <td style="font-size:0.75rem;">${lastStatus} (${job.executionCount || 0} runs)</td>
       <td>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-sm btn-primary btn-run-cron" data-name="${job.name}">Run Now</button>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-sm btn-secondary btn-run-cron" data-name="${job.name}">Run</button>
           <button class="btn btn-sm btn-secondary btn-edit-cron" data-name="${job.name}">Edit</button>
-          <button class="btn btn-sm btn-secondary btn-toggle-cron" data-name="${job.name}" data-enabled="${!job.enabled}">
+          <button class="btn btn-sm btn-ghost btn-toggle-cron" data-name="${job.name}" data-enabled="${!job.enabled}">
             ${job.enabled ? 'Disable' : 'Enable'}
           </button>
         </div>
@@ -673,7 +701,7 @@ function openEditCronModal(job) {
 }
 
 async function triggerCronJob(jobName) {
-  showToast(`Triggering cron job '${jobName}'...`, 'info');
+  showToast(`Executing cron job '${jobName}'...`);
   try {
     const res = await fetch('/api/cron/run', {
       method: 'POST',
@@ -682,13 +710,13 @@ async function triggerCronJob(jobName) {
     });
     const data = await res.json();
     if (res.ok) {
-      showToast(`Cron job '${jobName}' executed successfully!`, 'success');
+      showToast(`Cron job '${jobName}' executed.`);
       fetchCronJobs();
     } else {
-      showToast(`Cron job failed: ${data.error}`, 'error');
+      showToast(`Execution failed: ${data.error}`);
     }
   } catch {
-    showToast('Failed to trigger cron job', 'error');
+    showToast('Failed to trigger cron job');
   }
 }
 
@@ -700,25 +728,23 @@ async function toggleCronJob(jobName, enabled) {
       body: JSON.stringify({ jobName, enabled }),
     });
     if (res.ok) {
-      showToast(`Cron job '${jobName}' ${enabled ? 'enabled' : 'disabled'}!`, 'success');
+      showToast(`Cron job '${jobName}' ${enabled ? 'enabled' : 'disabled'}.`);
       fetchCronJobs();
     }
   } catch {
-    showToast('Failed to toggle cron job', 'error');
+    showToast('Failed to toggle cron job');
   }
 }
 
 document.getElementById('btn-refresh-cron').addEventListener('click', fetchCronJobs);
 
-// --- Forms Management ---
+// --- Quick Forms ---
 function initForms() {
   document.getElementById('form-quick-send').addEventListener('submit', async (e) => {
     e.preventDefault();
     const channel = document.getElementById('quick-send-channel').value;
     const message = document.getElementById('quick-send-message').value;
     const from = document.getElementById('quick-send-from').value;
-
-    showToast(`Sending to #${channel}...`, 'info');
 
     try {
       const res = await fetch('/api/messages/send', {
@@ -728,13 +754,13 @@ function initForms() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast('Message sent successfully!', 'success');
+        showToast('Message sent successfully.');
         document.getElementById('quick-send-message').value = '';
       } else {
-        showToast(`Send failed: ${data.error}`, 'error');
+        showToast(`Send failed: ${data.error}`);
       }
     } catch {
-      showToast('Network error while sending message', 'error');
+      showToast('Network error while dispatching message.');
     }
   });
 
@@ -744,7 +770,7 @@ function initForms() {
   });
 }
 
-// --- Interactive API Playground (Baileys.wiki-Style) ---
+// --- Interactive API Playground ---
 const API_ENDPOINTS = {
   send_message: {
     method: 'POST',
@@ -761,7 +787,7 @@ const API_ENDPOINTS = {
     params: [
       { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
       { name: 'rootId', type: 'string', default: ':1', required: true },
-      { name: 'message', type: 'string', default: 'Approved and merged!', required: true },
+      { name: 'message', type: 'string', default: 'Approved and merged.', required: true },
       { name: 'from', type: 'string', default: 'AI Agent', required: false },
     ],
   },
@@ -823,9 +849,9 @@ function initApiPlayground() {
   const select = document.getElementById('api-endpoint-select');
   select.addEventListener('change', renderApiParams);
 
-  document.querySelectorAll('.code-tab').forEach((tab) => {
+  document.querySelectorAll('.code-tab-btn').forEach((tab) => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.code-tab').forEach((t) => t.classList.remove('active'));
+      document.querySelectorAll('.code-tab-btn').forEach((t) => t.classList.remove('active'));
       tab.classList.add('active');
       state.activeCodeLang = tab.getAttribute('data-lang');
       updateGeneratedCode();
@@ -847,30 +873,29 @@ function renderApiParams() {
   container.innerHTML = '';
 
   if (def.params.length === 0) {
-    container.innerHTML = '<p class="text-sm text-muted">No request parameters required for this endpoint.</p>';
+    container.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);padding:8px 0;">No parameters required for this endpoint.</p>';
   } else {
     def.params.forEach((param) => {
       const group = document.createElement('div');
-      group.className = 'form-group';
+      group.className = 'form-field';
 
       if (param.type === 'channel_select') {
-        // Searchable Channel Dropdown in API Playground
         let optionsHtml = '';
         state.channels.forEach((c) => {
           optionsHtml += `<option value="${c.alias}" ${c.alias === param.default ? 'selected' : ''}>#${c.alias} (${c.displayName || c.channel})</option>`;
         });
 
         group.innerHTML = `
-          <label>${param.name} (Searchable Channel) ${param.required ? '<span style="color:var(--danger)">*</span>' : ''}</label>
-          <select class="form-control api-input" data-param="${param.name}">
+          <label class="field-label">${param.name} (Searchable Channel) ${param.required ? '<span style="color:var(--status-danger)">*</span>' : ''}</label>
+          <select class="field-input api-input" data-param="${param.name}">
             ${optionsHtml || `<option value="${param.default}">${param.default}</option>`}
           </select>
         `;
         group.querySelector('select').addEventListener('change', updateGeneratedCode);
       } else {
         group.innerHTML = `
-          <label>${param.name} ${param.required ? '<span style="color:var(--danger)">*</span>' : ''}</label>
-          <input type="text" class="form-control api-input" data-param="${param.name}" value="${param.default}">
+          <label class="field-label">${param.name} ${param.required ? '<span style="color:var(--status-danger)">*</span>' : ''}</label>
+          <input type="text" class="field-input api-input" data-param="${param.name}" value="${param.default}">
         `;
         group.querySelector('input').addEventListener('input', updateGeneratedCode);
       }
@@ -939,9 +964,9 @@ async function executeApiRequest() {
   const statusBadge = document.getElementById('api-response-status');
   const responseBody = document.getElementById('api-response-body');
 
-  statusBadge.className = 'badge badge-warning';
+  statusBadge.className = 'status-pill status-executing';
   statusBadge.textContent = 'Executing...';
-  responseBody.textContent = 'Sending request to server...';
+  responseBody.textContent = 'Awaiting response...';
 
   try {
     let url = def.path;
@@ -960,13 +985,13 @@ async function executeApiRequest() {
     const duration = Math.round(performance.now() - startTime);
     const json = await res.json();
 
-    statusBadge.className = res.ok ? 'badge badge-success' : 'badge badge-danger';
-    statusBadge.textContent = `Status: ${res.status} ${res.statusText} (${duration}ms)`;
+    statusBadge.className = res.ok ? 'status-pill status-success-pill' : 'status-pill status-danger-pill';
+    statusBadge.textContent = `${res.status} ${res.statusText} (${duration}ms)`;
     responseBody.textContent = JSON.stringify(json, null, 2);
 
-    addLog(`[API Request] ${def.method} ${url} -> ${res.status} (${duration}ms)`, res.ok ? 'log-success' : 'log-error');
+    addLog(`[API] ${def.method} ${url} -> ${res.status} (${duration}ms)`, res.ok ? 'log-sent' : 'log-error');
   } catch (err) {
-    statusBadge.className = 'badge badge-danger';
+    statusBadge.className = 'status-pill status-danger-pill';
     statusBadge.textContent = 'Network Error';
     responseBody.textContent = err.message;
   }
@@ -975,43 +1000,44 @@ async function executeApiRequest() {
 function copyApiSnippet() {
   const snippet = document.getElementById('api-code-snippet').textContent;
   navigator.clipboard.writeText(snippet);
-  showToast('Code snippet copied to clipboard!', 'info');
+  showToast('Code snippet copied to clipboard.');
 }
 
 function copySnippet(id) {
   const el = document.getElementById(id);
   navigator.clipboard.writeText(el.innerText);
-  showToast('cURL command copied!', 'info');
+  showToast('cURL command copied to clipboard.');
 }
 
-// --- Live Activity Logging ---
-function addLog(text, levelClass = 'log-info') {
+// --- Live Console Logging ---
+function addLog(text, levelClass = 'log-system') {
   const consoleEl = document.getElementById('logs-console');
-  const time = new Date().toLocaleTimeString();
+  if (!consoleEl) return;
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const entry = document.createElement('div');
-  entry.className = `log-entry ${levelClass}`;
-  entry.textContent = `[${time}] ${text}`;
+  entry.className = `log-line ${levelClass}`;
+  entry.innerHTML = `<span class="log-ts">[${time}]</span> ${escapeHtml(text)}`;
   consoleEl.appendChild(entry);
   consoleEl.scrollTop = consoleEl.scrollHeight;
 }
 
 document.getElementById('btn-clear-logs').addEventListener('click', () => {
-  document.getElementById('logs-console').innerHTML = '<div class="log-entry log-info">[System] Logs cleared.</div>';
+  document.getElementById('logs-console').innerHTML = '<div class="log-line log-system">[00:00:00] Logs cleared.</div>';
 });
 
 // --- Toast Notifications ---
-function showToast(message, type = 'info') {
+function showToast(message) {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+  toast.className = 'toast-item';
+  toast.textContent = message;
   container.appendChild(toast);
 
   setTimeout(() => {
     toast.style.opacity = '0';
-    toast.style.transform = 'translateY(10px)';
-    setTimeout(() => toast.remove(), 250);
-  }, 4000);
+    toast.style.transform = 'translateY(6px)';
+    setTimeout(() => toast.remove(), 160);
+  }, 3200);
 }
 
 function escapeHtml(str) {
