@@ -691,7 +691,7 @@ program
   .command('ui')
   .alias('server')
   .alias('web')
-  .description('Start the modern Web Dashboard and REST API Gateway (Baileys.wiki-style)')
+  .description('Start the Web Dashboard & REST API Gateway')
   .option('-p, --port <port>', 'HTTP server port', '3000')
   .option('-h, --host <host>', 'HTTP server host', '0.0.0.0')
   .action(async (opts) => {

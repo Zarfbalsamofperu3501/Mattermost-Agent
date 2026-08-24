@@ -357,9 +357,9 @@ JSON Response:
 
 ---
 
-## 🌐 Web Dashboard & REST API Gateway (Baileys.wiki-Style)
+## 🌐 Web Dashboard & REST API Gateway
 
-`mattermost-agent` includes a modern, interactive **Web Dashboard** and **REST API Gateway** inspired by [baileys.wiki](https://baileys.wiki/).
+`mattermost-agent` includes a high-density, interactive **Web Dashboard** and **REST API Gateway** for direct developer integrations.
 
 ```bash
 # Launch the Web Dashboard & API Gateway on port 3000:

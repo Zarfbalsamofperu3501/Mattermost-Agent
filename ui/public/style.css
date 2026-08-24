@@ -1,5 +1,5 @@
 /* ==============================================================================
-   Mattermost Agent — Workbench & API Documentation (Baileys.wiki Style)
+   Mattermost Agent — Workbench & API Documentation
    High-Density, Integrated Developer Experience
    ============================================================================== */
 
@@ -30,7 +30,8 @@
   --text-muted: #475569;
 
   /* Accents & Status */
-  --accent-primary: #3b82f6;       /* Dev Blue */
+  --accent-primary: #3b82f6;
+  /* Dev Blue */
   --accent-primary-hover: #2563eb;
   --accent-amber: #f59e0b;
   --accent-emerald: #10b981;
@@ -79,13 +80,16 @@
 }
 
 /* Base Resets */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
 }
@@ -114,7 +118,8 @@ body {
   z-index: 50;
 }
 
-.topbar-left, .topbar-right {
+.topbar-left,
+.topbar-right {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -170,7 +175,7 @@ body {
   border: 1px solid var(--border-subtle);
 }
 
-/* Quick Search Box (Baileys style) */
+/* Quick Search Box */
 .quick-search-trigger {
   display: flex;
   align-items: center;
@@ -324,7 +329,7 @@ body {
   background-color: rgba(255, 255, 255, 0.04);
 }
 
-/* Endpoint items in sidebar (Baileys.wiki style) */
+/* Endpoint items in sidebar */
 .nav-endpoint-item {
   display: flex;
   align-items: center;
@@ -476,7 +481,9 @@ body {
 }
 
 @media (max-width: 1024px) {
-  .metrics-row { grid-template-columns: repeat(2, 1fr); }
+  .metrics-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .metric-box {
@@ -532,7 +539,9 @@ body {
 }
 
 @media (max-width: 960px) {
-  .split-row { grid-template-columns: 1fr; }
+  .split-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .panel-card {
@@ -569,7 +578,7 @@ body {
 }
 
 /* ==============================================================================
-   Code Terminals (Baileys.wiki Sandbox)
+   Code Terminals (API Sandbox)
    ============================================================================== */
 .terminal-container {
   background-color: var(--bg-terminal);
@@ -717,8 +726,13 @@ body {
   gap: 4px;
 }
 
-.flex-1 { flex: 1; }
-.w-full { width: 100%; }
+.flex-1 {
+  flex: 1;
+}
+
+.w-full {
+  width: 100%;
+}
 
 .input-label {
   font-size: 0.72rem;
@@ -726,7 +740,9 @@ body {
   color: var(--text-medium);
 }
 
-.custom-input, .custom-select, .custom-textarea {
+.custom-input,
+.custom-select,
+.custom-textarea {
   width: 100%;
   padding: 6px 9px;
   background-color: var(--bg-input);
@@ -738,7 +754,9 @@ body {
   transition: border-color var(--transition-fast);
 }
 
-.custom-input:focus, .custom-select:focus, .custom-textarea:focus {
+.custom-input:focus,
+.custom-select:focus,
+.custom-textarea:focus {
   outline: none;
   border-color: var(--border-focus);
 }
@@ -801,7 +819,9 @@ body {
   font-size: 0.74rem;
 }
 
-.search-input:focus { outline: none; }
+.search-input:focus {
+  outline: none;
+}
 
 .channel-tree-scroll {
   flex: 1;
@@ -843,8 +863,13 @@ body {
   margin-right: 6px;
 }
 
-.channel-dot-on { background-color: var(--accent-emerald); }
-.channel-dot-off { background-color: var(--text-muted); }
+.channel-dot-on {
+  background-color: var(--accent-emerald);
+}
+
+.channel-dot-off {
+  background-color: var(--text-muted);
+}
 
 /* Chat Main Stream */
 .chat-stream-pane {
@@ -918,7 +943,8 @@ body {
 }
 
 /* Chat Messages View */
-.chat-messages-view, .threads-view {
+.chat-messages-view,
+.threads-view {
   flex: 1;
   overflow-y: auto;
   padding: 12px 14px;
@@ -1135,7 +1161,9 @@ body {
   width: 120px;
 }
 
-.composer-from-input:focus { outline: none; }
+.composer-from-input:focus {
+  outline: none;
+}
 
 /* ==============================================================================
    Table Layouts (Cron Scheduler)
@@ -1180,7 +1208,7 @@ body {
 }
 
 /* ==============================================================================
-   API Playground (Baileys.wiki Dual Stage)
+   API Playground
    ============================================================================== */
 .endpoint-title-row {
   display: flex;
@@ -1204,7 +1232,9 @@ body {
 }
 
 @media (max-width: 960px) {
-  .api-split-workbench { grid-template-columns: 1fr; }
+  .api-split-workbench {
+    grid-template-columns: 1fr;
+  }
 }
 
 .api-params-stack {
@@ -1269,10 +1299,25 @@ body {
   border-radius: var(--radius-xs);
 }
 
-.status-idle { background-color: rgba(255, 255, 255, 0.06); color: var(--text-muted); }
-.status-ok { background-color: rgba(16, 185, 129, 0.12); color: var(--accent-emerald); }
-.status-err { background-color: rgba(244, 63, 94, 0.12); color: var(--accent-rose); }
-.status-loading { background-color: rgba(245, 158, 11, 0.12); color: var(--accent-amber); }
+.status-idle {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+}
+
+.status-ok {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: var(--accent-emerald);
+}
+
+.status-err {
+  background-color: rgba(244, 63, 94, 0.12);
+  color: var(--accent-rose);
+}
+
+.status-loading {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: var(--accent-amber);
+}
 
 .terminal-response {
   min-height: 110px;
@@ -1306,7 +1351,10 @@ body {
   color: var(--text-medium);
 }
 
-.log-time { color: var(--text-muted); }
+.log-time {
+  color: var(--text-muted);
+}
+
 .log-tag {
   font-size: 0.62rem;
   font-weight: 700;
@@ -1316,9 +1364,17 @@ body {
   margin-right: 3px;
 }
 
-.log-sys { color: #93c5fd; }
-.log-ok { color: #86efac; }
-.log-fail { color: #fca5a5; }
+.log-sys {
+  color: #93c5fd;
+}
+
+.log-ok {
+  color: #86efac;
+}
+
+.log-fail {
+  color: #fca5a5;
+}
 
 /* ==============================================================================
    Modal Dialog
@@ -1421,11 +1477,19 @@ body {
 }
 
 @keyframes toastSlide {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.loading-state, .empty-state {
+.loading-state,
+.empty-state {
   font-size: 0.75rem;
   color: var(--text-muted);
   padding: 16px;

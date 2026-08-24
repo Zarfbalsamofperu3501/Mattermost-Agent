@@ -1,5 +1,5 @@
 // ==============================================================================
-// Mattermost Agent — API Workbench Controller (Baileys.wiki Style)
+// Mattermost Agent — API Workbench Controller
 // ==============================================================================
 
 const state = {
@@ -889,7 +889,7 @@ function initForms() {
   });
 }
 
-// --- Interactive API Playground (Baileys.wiki-Style) ---
+// --- Interactive API Playground ---
 function initApiPlayground() {
   document.querySelectorAll('.code-tab-item').forEach((tab) => {
     tab.addEventListener('click', () => {
