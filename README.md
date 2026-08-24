@@ -443,6 +443,25 @@ npm run build
 
 ---
 
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/egagofur/Mattermost-Agent/issues).
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feat/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feat/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## ⭐ Show Your Support
+
+If this tool helped you or your team automate Mattermost without admin headache, please consider giving it a ⭐️ on [GitHub](https://github.com/egagofur/Mattermost-Agent)!
+
+---
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+Distributed as open source software to empower developers and engineering teams worldwide.

@@ -1,13 +1,21 @@
 {
   "name": "mattermost-agent",
   "version": "1.0.0",
-  "description": "Modular personal account automation service and CLI for Mattermost",
+  "description": "Production-grade Mattermost automation CLI & TypeScript SDK. Send messages, reply to threads, discover channels, and trigger CI/AI actions as your personal account with Playwright (zero-admin) and REST API v4.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "mattermost": "./dist/cli/index.js"
   },
   "type": "commonjs",
+  "homepage": "https://github.com/egagofur/Mattermost-Agent#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/egagofur/Mattermost-Agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/egagofur/Mattermost-Agent/issues"
+  },
   "scripts": {
     "build": "tsc",
     "cli": "tsx src/cli/index.ts",
@@ -24,12 +32,22 @@
   },
   "keywords": [
     "mattermost",
+    "mattermost-api",
+    "mattermost-bot",
+    "mattermost-agent",
+    "playwright",
+    "typescript",
     "automation",
     "personal-account",
-    "playwright",
-    "api"
+    "ai-agent",
+    "chatops",
+    "git-hooks",
+    "cli",
+    "developer-tools",
+    "chat-automation",
+    "mattermost-sdk"
   ],
-  "author": "Ega Gofur",
+  "author": "Ega Gofur <egagofurtriwahana@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "commander": "^13.1.0",
