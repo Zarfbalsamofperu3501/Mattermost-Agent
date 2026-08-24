@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import * as fs from 'fs';
 import { MattermostAutomationService } from '../application/mattermost/services/automation-service';
+import { ChannelConfigLoader } from '../infrastructure/mattermost/services/channel-config-loader';
 import { loadConfig } from '../config/env';
 import { MattermostError } from '../domain/mattermost/errors';
 
@@ -15,7 +16,9 @@ program
   .option('-u, --url <url>', 'Mattermost server URL')
   .option('-t, --token <token>', 'Mattermost Personal Access Token')
   .option('-p, --provider <provider>', 'Provider to use: "api" or "playwright"')
-  .option('--team-id <teamId>', 'Mattermost Team ID');
+  .option('--team-id <teamId>', 'Mattermost Team ID')
+  .option('--channels-config <path>', 'Path to YAML channel mapping configuration file')
+  .option('--env <environment>', 'Active environment overlay for channel mappings (e.g. dev, staging, prod)');
 
 function getService(cmdOpts: Record<string, unknown> = {}): MattermostAutomationService {
   const globalOpts = program.opts();
@@ -25,6 +28,8 @@ function getService(cmdOpts: Record<string, unknown> = {}): MattermostAutomation
   if (globalOpts.token) overrides.MATTERMOST_TOKEN = globalOpts.token;
   if (globalOpts.provider) overrides.MATTERMOST_PROVIDER = globalOpts.provider;
   if (globalOpts.teamId) overrides.MATTERMOST_TEAM_ID = globalOpts.teamId;
+  if (globalOpts.channelsConfig) overrides.MATTERMOST_CHANNELS_CONFIG = globalOpts.channelsConfig;
+  if (globalOpts.env) overrides.MATTERMOST_ENV = globalOpts.env;
 
   try {
     const config = loadConfig(overrides);
@@ -282,6 +287,47 @@ program
       handleError(err);
     } finally {
       await service.close();
+    }
+  });
+
+// aliases
+program
+  .command('aliases')
+  .alias('channels-map')
+  .description('List all channel aliases configured in YAML mapping')
+  .action(async () => {
+    try {
+      const globalOpts = program.opts();
+      const configLoader = new ChannelConfigLoader({
+        configPath: globalOpts.channelsConfig || process.env.MATTERMOST_CHANNELS_CONFIG,
+        envName: globalOpts.env || process.env.MATTERMOST_ENV,
+      });
+
+      const aliases = configLoader.getAllMappings();
+      if (program.opts().json) {
+        handleOutput(aliases, true);
+      } else {
+        console.log(`\n📋 Configured Channel Aliases (${aliases.length} aliases):`);
+        if (configLoader.getDefaultTeam()) {
+          console.log(`   Default Team: ${configLoader.getDefaultTeam()}`);
+        }
+        if (configLoader.getFallbackChannel()) {
+          console.log(`   Fallback Channel: #${configLoader.getFallbackChannel()}`);
+        }
+        console.log('-------------------------------------------------------------');
+        if (aliases.length === 0) {
+          console.log('   No aliases loaded. Create channels.yml to define friendly aliases.');
+        } else {
+          for (const a of aliases) {
+            const teamInfo = a.team ? ` (team: ${a.team})` : '';
+            const desc = a.description ? ` - ${a.description}` : '';
+            console.log(`   • ${a.alias.padEnd(16)} ➔ #${a.channel}${teamInfo}${desc}`);
+          }
+        }
+        console.log('-------------------------------------------------------------\n');
+      }
+    } catch (err) {
+      handleError(err);
     }
   });
 

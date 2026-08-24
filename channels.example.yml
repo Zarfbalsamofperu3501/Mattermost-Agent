@@ -1,0 +1,71 @@
+# ==============================================================================
+# Mattermost Channel Mapping & Alias Configuration
+# ==============================================================================
+# This configuration maps domain-friendly aliases to specific Mattermost channels
+# and teams, enabling flexible routing across development environments and teams.
+
+# Default team ID or slug to use when an alias does not specify a team
+default_team: engineering-team
+
+# Fallback channel to route notifications if a target channel is not found
+fallback_channel: town-square
+
+# ==============================================================================
+# Base Channel Mappings
+# ==============================================================================
+channels:
+  # 1. Simple string mapping (alias -> channel name)
+  eng: engineering
+  general: town-square
+  random: off-topic
+
+  # 2. Rich object mapping (with target channel, team, and description)
+  backend:
+    channel: dotify-backend-dev
+    team: dot-dev
+    description: "Core backend engineering channel"
+
+  frontend:
+    channel: dotify-frontend-dev
+    team: dot-dev
+    description: "Core frontend engineering channel"
+
+  qa-alerts:
+    channel: automated-qa-reports
+    team: quality-assurance
+    description: "Automated test runs and QA pipeline failures"
+
+  releases:
+    channel: product-releases
+    team: release-ops
+    description: "Production and staging deployment changelogs"
+
+# ==============================================================================
+# Environment Overlays (Optional)
+# ==============================================================================
+# When MATTERMOST_ENV (or NODE_ENV) is set, mappings under that environment
+# overlay/override the base channels defined above.
+environments:
+  dev:
+    backend:
+      channel: dotify-backend-dev
+      team: dot-dev
+    alerts:
+      channel: dev-system-alerts
+      team: dot-dev
+
+  staging:
+    backend:
+      channel: dotify-backend-staging
+      team: dot-staging
+    alerts:
+      channel: staging-alerts
+      team: dot-staging
+
+  prod:
+    backend:
+      channel: dotify-backend-prod
+      team: dot-prod
+    alerts:
+      channel: incident-response
+      team: dot-prod

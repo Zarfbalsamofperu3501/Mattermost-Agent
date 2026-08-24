@@ -15,6 +15,7 @@
   <a href="#-architecture">Architecture</a> •
   <a href="#-features">Features</a> •
   <a href="#-quick-start">Quick Start</a> •
+  <a href="#-yaml-channel-mapping">Channel Mapping</a> •
   <a href="#-cli-reference">CLI Reference</a> •
   <a href="#-typescript-sdk">TypeScript SDK</a> •
   <a href="#-security">Security</a> •
@@ -170,6 +171,58 @@ If your Mattermost workspace administrator disables Personal Access Tokens:
    ```
 3. A browser window will open. Complete your standard login and MFA manually.
 4. Once logged in, the session is saved to `data/mattermost-browser/` and will be reused automatically for headless execution.
+
+---
+
+## 📁 YAML Channel Mapping
+
+Define domain-friendly aliases, multi-team routing, and environment overlays in a `channels.yml` file (or `channels.yaml`).
+
+### Example `channels.yml`
+```yaml
+default_team: engineering-team
+fallback_channel: town-square
+
+channels:
+  # Simple string mapping
+  eng: engineering
+  general: town-square
+
+  # Rich object mapping with target channel, team, and description
+  backend-dev:
+    channel: dotify-backend-dev
+    team: dot-dev
+    description: "Backend development notifications"
+
+  qa-alerts:
+    channel: automated-qa-reports
+    team: quality-assurance
+    description: "QA pipeline test results"
+
+# Environment overlays (activated via MATTERMOST_ENV or --env)
+environments:
+  prod:
+    backend-dev:
+      channel: dotify-backend-prod
+      team: dot-prod
+```
+
+### Inspecting Aliases
+View all loaded channel aliases via CLI:
+```bash
+npm run cli -- aliases --channels-config channels.example.yml
+```
+```text
+📋 Configured Channel Aliases (7 aliases):
+   Default Team: engineering-team
+   Fallback Channel: #town-square
+-------------------------------------------------------------
+   • eng              ➔ #engineering (team: engineering-team)
+   • general          ➔ #town-square (team: engineering-team)
+   • backend-dev      ➔ #dotify-backend-dev (team: dot-dev) - Backend development notifications
+   • qa-alerts        ➔ #automated-qa-reports (team: quality-assurance) - QA pipeline test results
+-------------------------------------------------------------
+```
 
 ---
 

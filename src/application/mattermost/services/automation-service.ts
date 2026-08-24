@@ -59,6 +59,8 @@ export class MattermostAutomationService {
 
     this.channelResolver = new ChannelResolver(this.provider, {
       defaultTeamId: this.config.MATTERMOST_TEAM_ID,
+      channelsConfigPath: this.config.MATTERMOST_CHANNELS_CONFIG,
+      envName: this.config.MATTERMOST_ENV,
       logger: this.logger,
     });
 
@@ -144,6 +146,13 @@ export class MattermostAutomationService {
       channel: channelIdentifier,
       teamId,
     });
+  }
+
+  /**
+   * Returns all loaded channel aliases from YAML mapping.
+   */
+  public listChannelAliases() {
+    return this.channelResolver.getAliases();
   }
 
   /**
