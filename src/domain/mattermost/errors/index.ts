@@ -74,6 +74,20 @@ export class MattermostChannelNotFoundError extends MattermostError {
   }
 }
 
+export class MattermostChannelDisabledError extends MattermostError {
+  constructor(channelIdentifier: string, details?: Record<string, unknown>) {
+    super(
+      `Mattermost channel '${channelIdentifier}' is disabled in channels.yml configuration. Set 'enabled: true' to allow sending messages.`,
+      {
+        code: 'CHANNEL_DISABLED',
+        statusCode: 403,
+        isRetryable: false,
+        details: { channelIdentifier, ...details },
+      }
+    );
+  }
+}
+
 export class MattermostRateLimitError extends MattermostError {
   public readonly retryAfterMs: number;
 

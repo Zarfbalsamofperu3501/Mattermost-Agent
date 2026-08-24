@@ -8,7 +8,10 @@ import { Logger, defaultLogger } from './logger';
 export const ChannelDefinitionObjectSchema = z.object({
   channel: z.string().min(1, 'Target channel cannot be empty.'),
   team: z.string().optional(),
+  display_name: z.string().optional(),
   description: z.string().optional(),
+  enabled: z.boolean().optional().default(true),
+  type: z.string().optional(),
   default_root_id: z.string().optional(),
   tags: z.array(z.string()).optional(),
 });
@@ -34,7 +37,10 @@ export interface NormalizedChannelMapping {
   alias: string;
   channel: string;
   team?: string;
+  displayName?: string;
   description?: string;
+  enabled: boolean;
+  type?: string;
   defaultRootId?: string;
   tags?: string[];
 }
@@ -76,6 +82,7 @@ export class ChannelConfigLoader {
         alias,
         channel: def,
         team: this.defaultTeam,
+        enabled: true,
       };
     }
 
@@ -83,7 +90,10 @@ export class ChannelConfigLoader {
       alias,
       channel: def.channel,
       team: def.team || this.defaultTeam,
+      displayName: def.display_name,
       description: def.description,
+      enabled: def.enabled ?? true,
+      type: def.type,
       defaultRootId: def.default_root_id,
       tags: def.tags,
     };
@@ -189,11 +199,61 @@ export class ChannelConfigLoader {
     return this.defaultTeam;
   }
 
+  public setDefaultTeam(team: string | undefined): void {
+    this.defaultTeam = team;
+  }
+
   public getFallbackChannel(): string | undefined {
     return this.fallbackChannel;
   }
 
+  public setFallbackChannel(channel: string | undefined): void {
+    this.fallbackChannel = channel;
+  }
+
+  public setMapping(mapping: NormalizedChannelMapping): void {
+    this.mappings.set(mapping.alias.toLowerCase(), mapping);
+  }
+
   public hasMappings(): boolean {
     return this.mappings.size > 0;
+  }
+
+  public toYamlObject(): RawChannelMappingConfig {
+    const channelsObj: Record<string, ChannelDefinitionObject> = {};
+
+    for (const mapping of this.mappings.values()) {
+      channelsObj[mapping.alias] = {
+        channel: mapping.channel,
+        team: mapping.team,
+        display_name: mapping.displayName,
+        description: mapping.description,
+        enabled: mapping.enabled,
+        type: mapping.type,
+        default_root_id: mapping.defaultRootId,
+        tags: mapping.tags,
+      };
+    }
+
+    return {
+      default_team: this.defaultTeam,
+      fallback_channel: this.fallbackChannel,
+      channels: channelsObj,
+    };
+  }
+
+  public saveToFile(filePath: string): void {
+    const resolvedPath = path.resolve(process.cwd(), filePath);
+    const dir = path.dirname(resolvedPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const data = this.toYamlObject();
+    const doc = new YAML.Document(data);
+    doc.commentBefore = ' ==============================================================================\n Mattermost Channel Configuration (Auto-Generated & User-Configured)\n Toggle `enabled: true/false` to enable or disable individual channels.\n ==============================================================================';
+
+    fs.writeFileSync(resolvedPath, doc.toString(), 'utf-8');
+    this.configPath = resolvedPath;
   }
 }

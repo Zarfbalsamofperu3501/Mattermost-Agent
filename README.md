@@ -174,30 +174,56 @@ If your Mattermost workspace administrator disables Personal Access Tokens:
 
 ---
 
-## 📁 YAML Channel Mapping
+## 📁 YAML Channel Mapping & Auto-Discovery
 
-Define domain-friendly aliases, multi-team routing, and environment overlays in a `channels.yml` file (or `channels.yaml`).
+Instead of configuring channels one-by-one, use **Auto-Discovery** to fetch all accessible channels across all your teams and generate `channels.yml` with toggles!
 
-### Example `channels.yml`
+### 1. Auto-Discover & Generate `channels.yml`
+Run the sync command:
+```bash
+npm run cli -- sync
+```
+Output:
+```text
+🔍 Discovering all accessible channels from Mattermost...
+
+✅ Channels Synchronized Successfully!
+   File:       channels.yml
+   Discovered: 24 channels across 3 team(s)
+   Status:     24 enabled, 0 disabled
+
+-------------------------------------------------------------
+   🟢 [ENABLED]  town-square          ➔ #town-square (team: engineering-team)
+   🟢 [ENABLED]  engineering          ➔ #engineering (team: engineering-team)
+   🟢 [ENABLED]  backend-dev          ➔ #dotify-backend-dev (team: dot-dev)
+   🟢 [ENABLED]  qa-alerts            ➔ #automated-qa-reports (team: quality-assurance)
+-------------------------------------------------------------
+💡 You can now easily toggle 'enabled: true/false' in 'channels.yml'.
+```
+
+### 2. Enable / Disable Channels in `channels.yml`
+Simply toggle `enabled: false` for channels you do not wish automation to post to:
 ```yaml
 default_team: engineering-team
 fallback_channel: town-square
 
 channels:
-  # Simple string mapping
-  eng: engineering
-  general: town-square
+  engineering:
+    channel: engineering
+    team: engineering-team
+    enabled: true
+    description: "Main team channel"
 
-  # Rich object mapping with target channel, team, and description
   backend-dev:
     channel: dotify-backend-dev
     team: dot-dev
-    description: "Backend development notifications"
+    enabled: true
 
-  qa-alerts:
-    channel: automated-qa-reports
-    team: quality-assurance
-    description: "QA pipeline test results"
+  # Disabled channel (safe from accidental automation posts)
+  secret-project:
+    channel: secret-project
+    team: confidential-team
+    enabled: false
 
 # Environment overlays (activated via MATTERMOST_ENV or --env)
 environments:
@@ -206,22 +232,12 @@ environments:
       channel: dotify-backend-prod
       team: dot-prod
 ```
+> [!NOTE]
+> Re-running `mattermost sync` will automatically discover new channels while **preserving your existing `enabled: false` toggles and custom descriptions**.
 
-### Inspecting Aliases
-View all loaded channel aliases via CLI:
+### 3. Inspecting Active Aliases
 ```bash
-npm run cli -- aliases --channels-config channels.example.yml
-```
-```text
-📋 Configured Channel Aliases (7 aliases):
-   Default Team: engineering-team
-   Fallback Channel: #town-square
--------------------------------------------------------------
-   • eng              ➔ #engineering (team: engineering-team)
-   • general          ➔ #town-square (team: engineering-team)
-   • backend-dev      ➔ #dotify-backend-dev (team: dot-dev) - Backend development notifications
-   • qa-alerts        ➔ #automated-qa-reports (team: quality-assurance) - QA pipeline test results
--------------------------------------------------------------
+npm run cli -- aliases
 ```
 
 ---

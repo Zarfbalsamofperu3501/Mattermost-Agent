@@ -6,6 +6,7 @@ import { MattermostApiProvider } from '../../../infrastructure/mattermost/api/ap
 import { MattermostWebClient } from '../../../infrastructure/mattermost/playwright/web-client';
 import { MattermostPlaywrightProvider } from '../../../infrastructure/mattermost/playwright/playwright-provider';
 import { ChannelResolver } from '../../../infrastructure/mattermost/services/channel-resolver';
+import { ChannelSyncOptions, ChannelSyncService } from '../../../infrastructure/mattermost/services/channel-sync-service';
 import { IdempotencyManager } from '../../../infrastructure/mattermost/services/idempotency';
 import { Logger } from '../../../infrastructure/mattermost/services/logger';
 import { ActionExecutor } from '../actions';
@@ -146,6 +147,22 @@ export class MattermostAutomationService {
       channel: channelIdentifier,
       teamId,
     });
+  }
+
+  /**
+   * Discovers all accessible channels from the Mattermost server.
+   */
+  public async discoverChannels() {
+    const syncService = new ChannelSyncService(this.provider, this.logger);
+    return syncService.discoverChannels();
+  }
+
+  /**
+   * Automatically discovers all channels on Mattermost and syncs them to channels.yml.
+   */
+  public async syncChannels(options?: ChannelSyncOptions) {
+    const syncService = new ChannelSyncService(this.provider, this.logger);
+    return syncService.syncToYaml(options);
   }
 
   /**

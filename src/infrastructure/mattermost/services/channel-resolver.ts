@@ -1,5 +1,5 @@
 import { Channel } from '../../../domain/mattermost/entities';
-import { MattermostChannelNotFoundError } from '../../../domain/mattermost/errors';
+import { MattermostChannelDisabledError, MattermostChannelNotFoundError } from '../../../domain/mattermost/errors';
 import { MattermostProvider } from '../../../domain/mattermost/providers/mattermost-provider.interface';
 import { ChannelConfigLoader, NormalizedChannelMapping } from './channel-config-loader';
 import { Logger, defaultLogger } from './logger';
@@ -87,6 +87,13 @@ export class ChannelResolver {
 
     const yamlMapping = this.configLoader.getMapping(rawCleanId);
     if (yamlMapping) {
+      if (yamlMapping.enabled === false) {
+        throw new MattermostChannelDisabledError(identifier, {
+          alias: rawCleanId,
+          targetChannel: yamlMapping.channel,
+          team: yamlMapping.team,
+        });
+      }
       this.logger.debug(`Matched YAML alias '${rawCleanId}' -> target '${yamlMapping.channel}' (team: ${yamlMapping.team || 'default'})`);
       targetIdentifier = this.normalizeIdentifier(yamlMapping.channel);
       mappedTeam = yamlMapping.team;

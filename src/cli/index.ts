@@ -275,6 +275,47 @@ program
     }
   });
 
+// sync / discover
+program
+  .command('sync')
+  .alias('discover')
+  .description('Auto-discover all accessible Mattermost channels and generate/update channels.yml')
+  .option('-o, --output <file>', 'Output YAML file path', 'channels.yml')
+  .option('--disable-all', 'Set all newly discovered channels to enabled: false')
+  .option('--no-merge', 'Do not merge with existing channels.yml (overwrite)')
+  .action(async (opts) => {
+    const service = getService();
+    try {
+      console.log('\n🔍 Discovering all accessible channels from Mattermost...');
+      const result = await service.syncChannels({
+        filePath: opts.output,
+        defaultEnabled: !opts.disableAll,
+        mergeExisting: opts.merge,
+      });
+
+      if (program.opts().json) {
+        handleOutput(result, true);
+      } else {
+        console.log(`\n✅ Channels Synchronized Successfully!`);
+        console.log(`   File:      ${result.filePath}`);
+        console.log(`   Discovered: ${result.totalDiscovered} channels across ${result.totalTeams} team(s)`);
+        console.log(`   Status:    ${result.enabledCount} enabled, ${result.disabledCount} disabled\n`);
+        console.log('-------------------------------------------------------------');
+        for (const m of result.mappings) {
+          const statusIcon = m.enabled ? '🟢 [ENABLED] ' : '⚪ [DISABLED]';
+          const teamInfo = m.team ? ` (team: ${m.team})` : '';
+          console.log(`   ${statusIcon} ${m.alias.padEnd(20)} ➔ #${m.channel}${teamInfo}`);
+        }
+        console.log('-------------------------------------------------------------');
+        console.log(`💡 You can now easily toggle 'enabled: true/false' in '${result.filePath}'.\n`);
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      await service.close();
+    }
+  });
+
 // login (Playwright interactive setup)
 program
   .command('login')
@@ -283,6 +324,15 @@ program
     const service = getService({ MATTERMOST_PROVIDER: 'playwright', MATTERMOST_HEADLESS: false });
     try {
       await service.interactiveLogin();
+
+      // Post-login automatic channel discovery
+      console.log('\n🔄 Automatically discovering accessible channels...');
+      try {
+        const syncResult = await service.syncChannels();
+        console.log(`✅ Auto-generated channels.yml with ${syncResult.totalDiscovered} channels!`);
+      } catch (syncErr) {
+        console.log(`ℹ️ You can run 'mattermost sync' anytime to discover channels.`);
+      }
     } catch (err) {
       handleError(err);
     } finally {

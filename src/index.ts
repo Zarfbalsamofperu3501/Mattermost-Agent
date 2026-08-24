@@ -31,6 +31,8 @@ export type {
   NormalizedChannelMapping,
   RawChannelMappingConfig,
 } from './infrastructure/mattermost/services/channel-config-loader';
+export { ChannelSyncService } from './infrastructure/mattermost/services/channel-sync-service';
+export type { ChannelSyncOptions, ChannelSyncResult } from './infrastructure/mattermost/services/channel-sync-service';
 export { IdempotencyManager } from './infrastructure/mattermost/services/idempotency';
 export type { IdempotencyOptions } from './infrastructure/mattermost/services/idempotency';
 export { Logger, defaultLogger } from './infrastructure/mattermost/services/logger';
