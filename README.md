@@ -17,6 +17,7 @@
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-yaml-channel-mapping">Channel Mapping</a> •
   <a href="#-cli-reference">CLI Reference</a> •
+  <a href="#-model-context-protocol-mcp">MCP Server (AI Agents)</a> •
   <a href="#-typescript-sdk">TypeScript SDK</a> •
   <a href="#-security">Security</a> •
   <a href="#-testing">Testing</a>
@@ -351,6 +352,55 @@ JSON Response:
   }
 }
 ```
+
+---
+
+## 🤖 Model Context Protocol (MCP) Server for AI Agents
+
+`mattermost-agent` includes a built-in **MCP Server** over standard I/O (`stdio`), allowing AI coding assistants and agents (**Cursor**, **Claude Desktop**, **Antigravity**, **Windsurf**, **Claude Code**, etc.) to directly read and send Mattermost messages as your personal user!
+
+### ⚙️ Client Configuration
+
+#### 1. Cursor IDE (`.cursor/mcp.json` or Global MCP Settings)
+```json
+{
+  "mcpServers": {
+    "mattermost": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/mattermost-agent/dist/mcp/index.js"],
+      "env": {
+        "MATTERMOST_URL": "https://mattermost.example.com",
+        "MATTERMOST_PROVIDER": "playwright",
+        "MATTERMOST_DEFAULT_FROM": "AI Agent"
+      }
+    }
+  }
+}
+```
+
+#### 2. Claude Desktop (`claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "mattermost": {
+      "command": "npx",
+      "args": ["-y", "tsx", "/ABSOLUTE/PATH/TO/mattermost-agent/src/mcp/index.ts"]
+    }
+  }
+}
+```
+
+### 🛠️ Exposed MCP Tools
+
+| Tool Name | Description |
+| :--- | :--- |
+| `mattermost_whoami` | Verify authenticated identity (username, user ID, email, roles). |
+| `mattermost_list_channels` | List all discovered & configured channels with enabled status and aliases. |
+| `mattermost_get_threads` | List active threads in a channel with preview, reply counts, and `:1` shortcuts. |
+| `mattermost_send_message` | Send a new message to a channel with optional sender attribution (`from`). |
+| `mattermost_reply_thread` | Reply to a thread via shortcut (`:1`, `:latest`), keyword (`find`), permalink, or ID. |
+| `mattermost_read_channel` | Read recent channel posts and thread replies. |
+| `mattermost_sync_channels` | Auto-discover all channels across teams and sync to `channels.yml`. |
 
 ---
 

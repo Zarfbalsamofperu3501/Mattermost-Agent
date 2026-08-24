@@ -40,3 +40,6 @@ export type { ThreadSummary, LastThreadState } from './infrastructure/mattermost
 export { formatMessageWithAttribution } from './infrastructure/mattermost/services/message-formatter';
 export { Logger, defaultLogger } from './infrastructure/mattermost/services/logger';
 export type { LogLevel, StructuredLogPayload } from './infrastructure/mattermost/services/logger';
+
+// MCP Server (Model Context Protocol)
+export { createMattermostMcpServer, runStdioMcpServer } from './mcp/server';

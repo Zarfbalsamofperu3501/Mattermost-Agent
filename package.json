@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "mattermost": "./dist/cli/index.js"
+    "mattermost": "./dist/cli/index.js",
+    "mattermost-mcp": "./dist/mcp/index.js"
   },
   "type": "commonjs",
   "homepage": "https://github.com/egagofur/Mattermost-Agent#readme",
@@ -19,6 +20,7 @@
   "scripts": {
     "build": "tsc",
     "cli": "tsx src/cli/index.ts",
+    "mcp": "tsx src/mcp/index.ts",
     "send": "tsx src/cli/index.ts send",
     "reply": "tsx src/cli/index.ts reply",
     "threads": "tsx src/cli/index.ts threads",
@@ -50,6 +52,7 @@
   "author": "Ega Gofur <egagofurtriwahana@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "commander": "^13.1.0",
     "dotenv": "^16.4.7",
     "playwright": "^1.50.1",
