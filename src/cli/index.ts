@@ -574,4 +574,116 @@ program
     }
   });
 
+// cron command group
+const cronCmd = program
+  .command('cron')
+  .description('Manage and run scheduled Mattermost automation cron jobs');
+
+cronCmd
+  .command('start')
+  .description('Start the cron scheduler daemon process to run recurring jobs')
+  .action(() => {
+    console.log('\n🚀 Starting Mattermost Cron Scheduler Daemon...');
+    const service = getService();
+    service.startCronScheduler(true);
+    console.log('   Scheduler is active. Press Ctrl+C to stop.\n');
+  });
+
+cronCmd
+  .command('list [query]')
+  .description('List configured cron jobs, schedules, next execution times, and status')
+  .action((query) => {
+    const service = getService();
+    const jobs = service.listCronJobs();
+    let filtered = jobs;
+    if (query) {
+      const q = query.toLowerCase();
+      filtered = jobs.filter(
+        (j) =>
+          j.name.toLowerCase().includes(q) ||
+          j.channel.toLowerCase().includes(q) ||
+          (j.description && j.description.toLowerCase().includes(q))
+      );
+    }
+
+    if (program.opts().json) {
+      handleOutput(filtered, true);
+    } else {
+      console.log(`\n⏰ Scheduled Cron Jobs (${filtered.length} jobs):`);
+      console.log('-------------------------------------------------------------------------------------------------');
+      if (filtered.length === 0) {
+        console.log('   No cron jobs configured. Check `cron.example.yml` and create `cron.yml`.');
+      } else {
+        for (const j of filtered) {
+          const statusIcon = j.enabled ? '🟢' : '⚪';
+          const nextRun = j.nextRunAt ? new Date(j.nextRunAt).toLocaleString() : (j.enabled ? 'Calculating...' : 'Disabled');
+          const lastStatus = j.lastStatus === 'success' ? '✅' : j.lastStatus === 'failed' ? '❌' : '⏳';
+          console.log(`   ${statusIcon} [${j.name}]`);
+          console.log(`      Schedule:    ${j.schedule} (${j.timezone})`);
+          console.log(`      Channel:     #${j.channel} ${j.from ? `(from: ${j.from})` : ''}`);
+          console.log(`      Next Run:    ${nextRun}`);
+          console.log(`      Last Run:    ${j.lastRunAt ? new Date(j.lastRunAt).toLocaleString() : 'Never'} [${lastStatus} ${j.lastStatus}] (Total runs: ${j.executionCount})`);
+          if (j.description) console.log(`      Description: ${j.description}`);
+          console.log('');
+        }
+      }
+      console.log('-------------------------------------------------------------------------------------------------');
+      console.log('💡 Quick Commands:');
+      console.log('   • Start Daemon:  npm run cron:start');
+      console.log('   • Trigger Once:  npm run cli -- cron run <job_name>');
+      console.log('   • Toggle:        npm run cli -- cron enable <job_name> | cron disable <job_name>\n');
+    }
+  });
+
+cronCmd
+  .command('run <jobName>')
+  .description('Trigger a single immediate test run of a configured cron job')
+  .action(async (jobName) => {
+    const service = getService();
+    console.log(`\n⏳ Triggering cron job '${jobName}' immediately...`);
+    try {
+      const result = await service.runCronJob(jobName);
+      if (result.success) {
+        console.log(`\n✅ Cron job '${jobName}' executed successfully!`);
+        if (result.messageId) console.log(`   Message ID: ${result.messageId}`);
+        console.log('');
+      } else {
+        console.error(`\n❌ Cron job '${jobName}' failed: ${result.error}\n`);
+        process.exit(1);
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      await service.close();
+    }
+  });
+
+cronCmd
+  .command('enable <jobName>')
+  .description('Enable a cron job in cron.yml')
+  .action((jobName) => {
+    const service = getService();
+    const success = service.toggleCronJob(jobName, true);
+    if (success) {
+      console.log(`\n🟢 Enabled cron job '${jobName}' in cron.yml\n`);
+    } else {
+      console.error(`\n❌ Job '${jobName}' was not found in cron configuration.\n`);
+      process.exit(1);
+    }
+  });
+
+cronCmd
+  .command('disable <jobName>')
+  .description('Disable a cron job in cron.yml')
+  .action((jobName) => {
+    const service = getService();
+    const success = service.toggleCronJob(jobName, false);
+    if (success) {
+      console.log(`\n⚪ Disabled cron job '${jobName}' in cron.yml\n`);
+    } else {
+      console.error(`\n❌ Job '${jobName}' was not found in cron configuration.\n`);
+      process.exit(1);
+    }
+  });
+
 program.parse(process.argv);

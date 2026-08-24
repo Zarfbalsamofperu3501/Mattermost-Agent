@@ -21,6 +21,9 @@
     "build": "tsc",
     "cli": "tsx src/cli/index.ts",
     "mcp": "tsx src/mcp/index.ts",
+    "cron": "tsx src/cli/index.ts cron",
+    "cron:start": "tsx src/cli/index.ts cron start",
+    "cron:list": "tsx src/cli/index.ts cron list",
     "send": "tsx src/cli/index.ts send",
     "reply": "tsx src/cli/index.ts reply",
     "threads": "tsx src/cli/index.ts threads",
@@ -54,6 +57,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "commander": "^13.1.0",
+    "croner": "^10.0.1",
     "dotenv": "^16.4.7",
     "playwright": "^1.50.1",
     "yaml": "^2.9.0",

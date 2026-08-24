@@ -20,6 +20,15 @@ config/channels.yml
 config/channels.yaml
 !channels.example.yml
 
+# Scheduled Cron Jobs (contains private team reminder templates)
+cron.yml
+cron.yaml
+.mattermost/cron.yml
+.mattermost/cron.yaml
+config/cron.yml
+config/cron.yaml
+!cron.example.yml
+
 # Browser automation profile & state
 data/
 browser-profile/

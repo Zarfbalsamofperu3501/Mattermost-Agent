@@ -8,6 +8,8 @@ import { MattermostPlaywrightProvider } from '../../../infrastructure/mattermost
 import { ChannelResolver } from '../../../infrastructure/mattermost/services/channel-resolver';
 import { ChannelSyncOptions, ChannelSyncService } from '../../../infrastructure/mattermost/services/channel-sync-service';
 import { ThreadService, ThreadSummary } from '../../../infrastructure/mattermost/services/thread-service';
+import { CronSchedulerEngine } from '../../../infrastructure/mattermost/cron/cron-scheduler-engine';
+import { CronJobSummary } from '../../../infrastructure/mattermost/cron/cron-config-schema';
 import { IdempotencyManager } from '../../../infrastructure/mattermost/services/idempotency';
 import { Logger } from '../../../infrastructure/mattermost/services/logger';
 import { ActionExecutor } from '../actions';
@@ -27,6 +29,7 @@ export class MattermostAutomationService {
   private idempotencyManager: IdempotencyManager;
   private actionExecutor: ActionExecutor;
   private webClient?: MattermostWebClient;
+  private cronScheduler?: CronSchedulerEngine;
 
   constructor(options: AutomationServiceOptions = {}) {
     this.config = options.config ?? loadConfig();
@@ -219,6 +222,56 @@ export class MattermostAutomationService {
   }
 
   /**
+   * Returns or initializes the CronSchedulerEngine instance.
+   */
+  public getCronScheduler(): CronSchedulerEngine {
+    if (!this.cronScheduler) {
+      this.cronScheduler = new CronSchedulerEngine({
+        automationService: this,
+        logger: this.logger,
+      });
+    }
+    return this.cronScheduler;
+  }
+
+  /**
+   * Lists all configured cron jobs with current next/last execution status.
+   */
+  public listCronJobs(): CronJobSummary[] {
+    return this.getCronScheduler().listJobSummaries();
+  }
+
+  /**
+   * Manually runs a specific cron job immediately.
+   */
+  public async runCronJob(jobName: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    return this.getCronScheduler().executeJob(jobName);
+  }
+
+  /**
+   * Enables or disables a cron job in cron.yml.
+   */
+  public toggleCronJob(jobName: string, enabled: boolean): boolean {
+    return this.getCronScheduler().getConfigLoader().toggleJob(jobName, enabled);
+  }
+
+  /**
+   * Starts the continuous cron scheduler runner.
+   */
+  public startCronScheduler(attachSignals = false): void {
+    this.getCronScheduler().start(attachSignals);
+  }
+
+  /**
+   * Stops the continuous cron scheduler runner.
+   */
+  public stopCronScheduler(): void {
+    if (this.cronScheduler) {
+      this.cronScheduler.stop();
+    }
+  }
+
+  /**
    * Interactive login helper for Playwright provider.
    */
   public async interactiveLogin(): Promise<void> {
@@ -234,9 +287,12 @@ export class MattermostAutomationService {
   }
 
   /**
-   * Clean up resources (e.g. closing browser session).
+   * Clean up resources (e.g. closing browser session and stopping cron schedules).
    */
   public async close(): Promise<void> {
+    if (this.cronScheduler) {
+      this.cronScheduler.stop();
+    }
     if (this.provider.close) {
       await this.provider.close();
     }

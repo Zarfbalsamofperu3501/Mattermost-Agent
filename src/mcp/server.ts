@@ -151,6 +151,51 @@ export function createMattermostMcpServer(service?: MattermostAutomationService)
         properties: {},
       },
     },
+    {
+      name: 'mattermost_list_cron_jobs',
+      description: 'List all configured Mattermost cron jobs, recurring schedules, next execution times, and status.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Optional search query to filter cron jobs by name, channel, or description.',
+          },
+        },
+      },
+    },
+    {
+      name: 'mattermost_run_cron_job',
+      description: 'Trigger a single immediate execution of a configured Mattermost cron job.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          jobName: {
+            type: 'string',
+            description: 'Name of the cron job to execute.',
+          },
+        },
+        required: ['jobName'],
+      },
+    },
+    {
+      name: 'mattermost_toggle_cron_job',
+      description: 'Enable or disable a configured Mattermost cron job in cron.yml.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          jobName: {
+            type: 'string',
+            description: 'Name of the cron job to toggle.',
+          },
+          enabled: {
+            type: 'boolean',
+            description: 'Set to true to enable, or false to disable.',
+          },
+        },
+        required: ['jobName', 'enabled'],
+      },
+    },
   ];
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -394,6 +439,106 @@ export function createMattermostMcpServer(service?: MattermostAutomationService)
                     totalDiscovered: result.totalDiscovered,
                     enabledCount: result.enabledCount,
                     disabledCount: result.disabledCount,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        }
+
+        case 'mattermost_list_cron_jobs': {
+          const query = typeof args.query === 'string' ? args.query.toLowerCase() : undefined;
+          const jobs = automationService.listCronJobs();
+
+          let filtered = jobs;
+          if (query) {
+            filtered = jobs.filter(
+              (j) =>
+                j.name.toLowerCase().includes(query) ||
+                j.channel.toLowerCase().includes(query) ||
+                (j.description && j.description.toLowerCase().includes(query))
+            );
+          }
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    total: filtered.length,
+                    jobs: filtered,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        }
+
+        case 'mattermost_run_cron_job': {
+          const jobName = String(args.jobName);
+          const result = await automationService.runCronJob(jobName);
+
+          if (!result.success) {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: 'text',
+                  text: `Failed to execute cron job '${jobName}': ${result.error}`,
+                },
+              ],
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    success: true,
+                    jobName,
+                    messageId: result.messageId,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        }
+
+        case 'mattermost_toggle_cron_job': {
+          const jobName = String(args.jobName);
+          const enabled = Boolean(args.enabled);
+          const success = automationService.toggleCronJob(jobName, enabled);
+
+          if (!success) {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: 'text',
+                  text: `Cron job '${jobName}' was not found in configuration.`,
+                },
+              ],
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    success: true,
+                    jobName,
+                    enabled,
                   },
                   null,
                   2

@@ -41,5 +41,13 @@ export { formatMessageWithAttribution } from './infrastructure/mattermost/servic
 export { Logger, defaultLogger } from './infrastructure/mattermost/services/logger';
 export type { LogLevel, StructuredLogPayload } from './infrastructure/mattermost/services/logger';
 
+// Cron & Scheduling Engine
+export { CronConfigLoader } from './infrastructure/mattermost/cron/cron-config-loader';
+export type { CronConfigLoaderOptions } from './infrastructure/mattermost/cron/cron-config-loader';
+export { CronSchedulerEngine } from './infrastructure/mattermost/cron/cron-scheduler-engine';
+export type { CronSchedulerEngineOptions } from './infrastructure/mattermost/cron/cron-scheduler-engine';
+export { CronStateManager } from './infrastructure/mattermost/cron/cron-state-manager';
+export * from './infrastructure/mattermost/cron/cron-config-schema';
+
 // MCP Server (Model Context Protocol)
 export { createMattermostMcpServer, runStdioMcpServer } from './mcp/server';
