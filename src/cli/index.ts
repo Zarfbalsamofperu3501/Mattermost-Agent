@@ -1,29 +1,29 @@
 #!/usr/bin/env node
+
 import { Command } from 'commander';
 import * as fs from 'fs';
 import { MattermostAutomationService } from '../application/mattermost/services/automation-service';
-import { ChannelConfigLoader } from '../infrastructure/mattermost/services/channel-config-loader';
-import { loadConfig } from '../config/env';
+import { loadConfig, MattermostConfig } from '../config/env';
 import { MattermostError } from '../domain/mattermost/errors';
+import { ChannelConfigLoader } from '../infrastructure/mattermost/services/channel-config-loader';
+import { ThreadService } from '../infrastructure/mattermost/services/thread-service';
 
 const program = new Command();
 
 program
   .name('mattermost')
-  .description('Personal Account Automation CLI for Mattermost')
+  .description('Personal Account Automation CLI for Mattermost (Playwright & API)')
   .version('1.0.0')
-  .option('--json', 'Output results formatted as JSON')
-  .option('-u, --url <url>', 'Mattermost server URL')
-  .option('-t, --token <token>', 'Mattermost Personal Access Token')
-  .option('-p, --provider <provider>', 'Provider to use: "api" or "playwright"')
-  .option('--team-id <teamId>', 'Mattermost Team ID')
-  .option('--channels-config <path>', 'Path to YAML channel mapping configuration file')
-  .option('--env <environment>', 'Active environment overlay for channel mappings (e.g. dev, staging, prod)');
+  .option('--json', 'Output results in structured JSON format', false)
+  .option('-u, --url <url>', 'Mattermost server URL override')
+  .option('-t, --token <token>', 'Personal Access Token override')
+  .option('-p, --provider <provider>', 'Provider override ("api" | "playwright")')
+  .option('--team-id <teamId>', 'Team ID override')
+  .option('--channels-config <path>', 'Custom channels YAML config path')
+  .option('--env <environment>', 'Active environment overlay (e.g. dev, staging, prod)');
 
-function getService(cmdOpts: Record<string, unknown> = {}): MattermostAutomationService {
+function getService(overrides: Partial<MattermostConfig> = {}): MattermostAutomationService {
   const globalOpts = program.opts();
-  const overrides: Record<string, string | undefined> = {};
-
   if (globalOpts.url) overrides.MATTERMOST_URL = globalOpts.url;
   if (globalOpts.token) overrides.MATTERMOST_TOKEN = globalOpts.token;
   if (globalOpts.provider) overrides.MATTERMOST_PROVIDER = globalOpts.provider;
@@ -44,11 +44,7 @@ function handleOutput(data: unknown, jsonMode = false): void {
   if (jsonMode || program.opts().json) {
     console.log(JSON.stringify(data, null, 2));
   } else {
-    if (typeof data === 'string') {
-      console.log(data);
-    } else {
-      console.log(data);
-    }
+    console.log(data);
   }
 }
 
@@ -56,19 +52,34 @@ function handleError(err: unknown): void {
   const isJson = program.opts().json;
   if (err instanceof MattermostError) {
     if (isJson) {
-      console.error(JSON.stringify({ success: false, error: { code: err.code, message: err.message, details: err.details } }, null, 2));
+      console.error(
+        JSON.stringify(
+          { success: false, error: { code: err.code, message: err.message, details: err.details } },
+          null,
+          2
+        )
+      );
     } else {
       console.error(`\n❌ Error [${err.code}]: ${err.message}`);
       if (err.details && Object.keys(err.details).length > 0) {
         console.error(`   Details:`, err.details);
       }
+      if (err.code === 'CHANNEL_DISABLED') {
+        const chan = (err.details?.channelIdentifier || err.details?.alias || 'channel') as string;
+        console.error(`\n💡 Tip: Run 'npm run cli -- enable ${chan}' to enable this channel.`);
+      } else if (err.code === 'CHANNEL_NOT_FOUND') {
+        console.error(`\n💡 Tip: Run 'npm run cli -- sync' to auto-discover all accessible channels.`);
+      } else if (err.code === 'AUTH_FAILED') {
+        console.error(`\n💡 Tip: Run 'npm run cli -- login' to authenticate your browser session.`);
+      }
+      console.error('');
     }
   } else {
     const msg = err instanceof Error ? err.message : String(err);
     if (isJson) {
       console.error(JSON.stringify({ success: false, error: { code: 'UNEXPECTED_ERROR', message: msg } }, null, 2));
     } else {
-      console.error(`\n❌ Unexpected Error: ${msg}`);
+      console.error(`\n❌ Unexpected Error: ${msg}\n`);
     }
   }
   process.exit(1);
@@ -77,7 +88,7 @@ function handleError(err: unknown): void {
 // whoami
 program
   .command('whoami')
-  .description('Verify personal identity and display current authenticated account')
+  .description('Verify personal identity and display current account')
   .action(async () => {
     const service = getService();
     try {
@@ -108,19 +119,33 @@ program
 
 // send
 program
-  .command('send')
-  .description('Send a message to a channel as personal user')
-  .requiredOption('-c, --channel <channel>', 'Channel name, slug, or ID')
-  .requiredOption('-m, --message <message>', 'Message body to send')
+  .command('send [channel] [message]')
+  .description('Send a message to a channel as personal user (e.g. `mattermost send per-fe-an "Hello" --from "AI"`)')
+  .option('-c, --channel <channel>', 'Channel name, slug, or ID')
+  .option('-m, --message <message>', 'Message body to send')
+  .option('--from <sender>', 'Sender attribution label (e.g. "AI" -> "_~ from AI_")')
+  .option('--no-from', 'Suppress sender attribution footer')
   .option('-r, --root-id <rootId>', 'Root ID to reply inside a thread')
   .option('--team <teamId>', 'Team ID or slug')
   .option('--idempotency-key <key>', 'Custom idempotency key to avoid duplicate sends')
-  .action(async (opts) => {
+  .action(async (posChannel, posMessage, opts) => {
+    const targetChannel = posChannel || opts.channel;
+    const targetMessage = posMessage || opts.message;
+
+    if (!targetChannel || !targetMessage) {
+      console.error('\n❌ Error: Channel and Message are required.');
+      console.error('   Usage: npm run cli -- send <channel> "<message>" [--from "AI"]');
+      console.error('   Or:    npm run cli -- send -c <channel> -m "<message>"\n');
+      process.exit(1);
+    }
+
     const service = getService();
     try {
+      const fromLabel = opts.from === false ? '' : opts.from;
       const result = await service.sendMessage({
-        channel: opts.channel,
-        message: opts.message,
+        channel: targetChannel,
+        message: targetMessage,
+        from: fromLabel,
         rootId: opts.rootId,
         teamId: opts.team,
         idempotencyKey: opts.idempotencyKey,
@@ -146,20 +171,72 @@ program
 
 // reply
 program
-  .command('reply')
-  .description('Reply to a message thread in a channel')
-  .requiredOption('-c, --channel <channel>', 'Channel name, slug, or ID')
-  .requiredOption('-r, --root-id <rootId>', 'Root thread ID to reply to')
-  .requiredOption('-m, --message <message>', 'Message body to send')
+  .command('reply [channel] [rootId] [message]')
+  .description('Reply to a message thread (e.g. `mattermost reply per-fe-an :1 "Reply text" --from "AI"`)')
+  .option('-c, --channel <channel>', 'Channel name, slug, or ID')
+  .option('-r, --root-id <rootId>', 'Root thread ID, permalink URL, or shortcut (:1, :latest, :last)')
+  .option('-f, --find <keyword>', 'Find thread matching keyword (e.g. -f "Standup")')
+  .option('--from <sender>', 'Sender attribution label (e.g. "AI" -> "_~ from AI_")')
+  .option('--no-from', 'Suppress sender attribution footer')
+  .option('--last', 'Reply to the last message sent in this session')
+  .option('-m, --message <message>', 'Message body to send')
   .option('--team <teamId>', 'Team ID or slug')
   .option('--idempotency-key <key>', 'Custom idempotency key')
-  .action(async (opts) => {
+  .action(async (posChannel, posRootId, posMessage, opts) => {
+    let targetChannel = posChannel || opts.channel;
+    let targetRootId = posRootId || opts.rootId;
+    let targetMessage = posMessage || opts.message;
+
+    // Support: mattermost reply --last "My message" or mattermost reply <channel> --last "My message"
+    if (opts.last || targetChannel === ':last' || targetChannel === '--last' || targetChannel === 'last') {
+      const threadService = new ThreadService(null as any);
+      const lastState = threadService.getLastThread();
+      if (!targetMessage && (posRootId || posChannel)) {
+        targetMessage = posRootId || posChannel;
+      }
+      targetRootId = ':last';
+      if (!targetChannel || targetChannel === ':last' || targetChannel === '--last' || targetChannel === 'last') {
+        targetChannel = lastState?.channelId || 'town-square';
+      }
+    }
+
+    // Support: mattermost reply <channel> -f "Standup" "My message"
+    if (opts.find) {
+      targetRootId = `find:${opts.find}`;
+      if (!targetMessage && posRootId) {
+        targetMessage = posRootId;
+      }
+    }
+
+    // Support: permalink URL as first argument
+    if (targetChannel && targetChannel.startsWith('http')) {
+      const extracted = ThreadService.extractPostIdFromPermalink(targetChannel);
+      if (extracted) {
+        targetRootId = extracted;
+        targetMessage = posRootId || posMessage || opts.message;
+        // Channel can default to town-square or let server handle
+        targetChannel = opts.channel || 'town-square';
+      }
+    }
+
+    if (!targetChannel || !targetRootId || !targetMessage) {
+      console.error('\n❌ Error: Channel, Thread Target, and Message are required.');
+      console.error('   Usage:');
+      console.error('     • By shortcut:  npm run reply -- <channel> :1 "<message>" [--from "AI"]');
+      console.error('     • By keyword:   npm run reply -- <channel> --find "<keyword>" "<message>"');
+      console.error('     • By post ID:   npm run reply -- <channel> <rootId> "<message>"');
+      console.error('     • To last post: npm run reply -- <channel> --last "<message>"\n');
+      process.exit(1);
+    }
+
     const service = getService();
     try {
+      const fromLabel = opts.from === false ? '' : opts.from;
       const result = await service.replyToMessage({
-        channel: opts.channel,
-        rootId: opts.rootId,
-        message: opts.message,
+        channel: targetChannel,
+        rootId: targetRootId,
+        message: targetMessage,
+        from: fromLabel,
         teamId: opts.team,
         idempotencyKey: opts.idempotencyKey,
       });
@@ -171,7 +248,64 @@ program
         console.log(`   Message ID:  ${result.id}`);
         console.log(`   Root ID:     ${result.rootId}`);
         console.log(`   Channel ID:  ${result.channelId}`);
+        console.log(`   Created At:  ${result.createdAt.toISOString()}`);
         console.log('');
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      await service.close();
+    }
+  });
+
+// threads (Thread Inspector)
+program
+  .command('threads [channel] [query]')
+  .description('List and search active threads in a channel')
+  .option('-l, --limit <limit>', 'Number of posts to scan (max 100)', '50')
+  .option('--team <teamId>', 'Team ID or slug')
+  .action(async (channelArg, queryArg, opts) => {
+    if (!channelArg) {
+      console.error('\n❌ Error: Channel is required.');
+      console.error('   Usage: npm run threads -- <channel> [search_query]\n');
+      process.exit(1);
+    }
+
+    const service = getService();
+    try {
+      const result = await service.getThreads({
+        channel: channelArg,
+        limit: parseInt(opts.limit, 10),
+        query: queryArg,
+        teamId: opts.team,
+      });
+
+      if (program.opts().json) {
+        handleOutput(result, true);
+      } else {
+        const { channel, threads } = result;
+        const queryLabel = queryArg ? ` matching '${queryArg}'` : '';
+        console.log(`\n🧵 Active Threads in #${channel.displayName} (${threads.length} threads${queryLabel}):`);
+        console.log('-----------------------------------------------------------------------------------------');
+
+        if (threads.length === 0) {
+          console.log(`   No active threads found in #${channel.displayName}.`);
+        } else {
+          for (const t of threads) {
+            const repliesText = t.replyCount === 1 ? '1 reply' : `${t.replyCount} replies`;
+            console.log(`[${t.index}] ${t.rootId} • ${t.relativeTime} • (${repliesText})`);
+            console.log(`    "${t.messageSnippet}"`);
+            if (t.lastReplySnippet) {
+              console.log(`    ↳ Last reply (${t.lastReplyRelativeTime}): "${t.lastReplySnippet}"`);
+            }
+            console.log('');
+          }
+        }
+
+        console.log('-----------------------------------------------------------------------------------------');
+        console.log('💡 Quick Reply Shortcuts:');
+        console.log(`   • Reply to latest:   npm run reply -- ${channel.name} :1 "<your message>"`);
+        console.log(`   • Reply by keyword:  npm run reply -- ${channel.name} --find "<keyword>" "<your message>"\n`);
       }
     } catch (err) {
       handleError(err);
@@ -275,6 +409,47 @@ program
     }
   });
 
+// enable
+program
+  .command('enable <channel>')
+  .description('Enable a channel in channels.yml (allow sending messages)')
+  .action(async (channel) => {
+    const service = getService();
+    try {
+      const ok = service.toggleChannel(channel, true);
+      if (ok) {
+        console.log(`\n🟢 Channel '${channel}' is now [ENABLED] in channels.yml\n`);
+      } else {
+        console.log(`\n❌ Channel '${channel}' was not found in channels.yml.`);
+        console.log(`💡 Run 'npm run cli -- sync' to auto-discover channels first.\n`);
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      await service.close();
+    }
+  });
+
+// disable
+program
+  .command('disable <channel>')
+  .description('Disable a channel in channels.yml (prevent sending messages)')
+  .action(async (channel) => {
+    const service = getService();
+    try {
+      const ok = service.toggleChannel(channel, false);
+      if (ok) {
+        console.log(`\n⚪ Channel '${channel}' is now [DISABLED] in channels.yml\n`);
+      } else {
+        console.log(`\n❌ Channel '${channel}' was not found in channels.yml.\n`);
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      await service.close();
+    }
+  });
+
 // sync / discover
 program
   .command('sync')
@@ -297,17 +472,17 @@ program
         handleOutput(result, true);
       } else {
         console.log(`\n✅ Channels Synchronized Successfully!`);
-        console.log(`   File:      ${result.filePath}`);
+        console.log(`   File:       ${result.filePath}`);
         console.log(`   Discovered: ${result.totalDiscovered} channels across ${result.totalTeams} team(s)`);
-        console.log(`   Status:    ${result.enabledCount} enabled, ${result.disabledCount} disabled\n`);
+        console.log(`   Status:     ${result.enabledCount} enabled, ${result.disabledCount} disabled\n`);
         console.log('-------------------------------------------------------------');
         for (const m of result.mappings) {
           const statusIcon = m.enabled ? '🟢 [ENABLED] ' : '⚪ [DISABLED]';
           const teamInfo = m.team ? ` (team: ${m.team})` : '';
-          console.log(`   ${statusIcon} ${m.alias.padEnd(20)} ➔ #${m.channel}${teamInfo}`);
+          console.log(`   ${statusIcon} ${m.alias.padEnd(25)} ➔ #${m.channel}${teamInfo}`);
         }
         console.log('-------------------------------------------------------------');
-        console.log(`💡 You can now easily toggle 'enabled: true/false' in '${result.filePath}'.\n`);
+        console.log(`💡 You can now easily toggle 'enabled: true/false' or use 'mattermost enable/disable <channel>'.\n`);
       }
     } catch (err) {
       handleError(err);
@@ -340,12 +515,14 @@ program
     }
   });
 
-// aliases
+// channels / aliases / list
 program
-  .command('aliases')
+  .command('channels [query]')
+  .alias('aliases')
+  .alias('list')
   .alias('channels-map')
-  .description('List all channel aliases configured in YAML mapping')
-  .action(async () => {
+  .description('List and search configured channels in channels.yml')
+  .action(async (query) => {
     try {
       const globalOpts = program.opts();
       const configLoader = new ChannelConfigLoader({
@@ -353,28 +530,44 @@ program
         envName: globalOpts.env || process.env.MATTERMOST_ENV,
       });
 
-      const aliases = configLoader.getAllMappings();
+      let aliases = configLoader.getAllMappings();
+      if (query) {
+        const q = query.toLowerCase();
+        aliases = aliases.filter(
+          (a) =>
+            a.alias.toLowerCase().includes(q) ||
+            a.channel.toLowerCase().includes(q) ||
+            (a.displayName && a.displayName.toLowerCase().includes(q)) ||
+            (a.description && a.description.toLowerCase().includes(q))
+        );
+      }
+
       if (program.opts().json) {
         handleOutput(aliases, true);
       } else {
-        console.log(`\n📋 Configured Channel Aliases (${aliases.length} aliases):`);
+        const total = configLoader.getAllMappings().length;
+        console.log(`\n📋 Mattermost Channels (${aliases.length} of ${total} channels${query ? ` matching '${query}'` : ''}):`);
         if (configLoader.getDefaultTeam()) {
-          console.log(`   Default Team: ${configLoader.getDefaultTeam()}`);
+          console.log(`   Default Team:     ${configLoader.getDefaultTeam()}`);
         }
         if (configLoader.getFallbackChannel()) {
           console.log(`   Fallback Channel: #${configLoader.getFallbackChannel()}`);
         }
-        console.log('-------------------------------------------------------------');
+        console.log('-------------------------------------------------------------------------------');
         if (aliases.length === 0) {
-          console.log('   No aliases loaded. Create channels.yml to define friendly aliases.');
+          console.log('   No matching channels found. Run `mattermost sync` to fetch channels.');
         } else {
           for (const a of aliases) {
-            const teamInfo = a.team ? ` (team: ${a.team})` : '';
-            const desc = a.description ? ` - ${a.description}` : '';
-            console.log(`   • ${a.alias.padEnd(16)} ➔ #${a.channel}${teamInfo}${desc}`);
+            const status = a.enabled ? '🟢' : '⚪';
+            const team = a.team ? `[team: ${a.team.slice(0, 8)}]` : '';
+            const desc = a.description ? ` - ${a.description.split('\n')[0].slice(0, 45)}` : '';
+            console.log(`   ${status} ${a.alias.padEnd(28)} ➔ #${a.channel.padEnd(28)} ${team}${desc}`);
           }
         }
-        console.log('-------------------------------------------------------------\n');
+        console.log('-------------------------------------------------------------------------------');
+        console.log('💡 Quick Commands:');
+        console.log('   • Send:    npm run cli -- send <channel> "<message>"');
+        console.log('   • Toggle:  npm run cli -- enable <channel>  |  npm run cli -- disable <channel>\n');
       }
     } catch (err) {
       handleError(err);
