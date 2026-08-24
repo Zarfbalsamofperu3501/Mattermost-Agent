@@ -1,0 +1,127 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { MattermostAutomationService } from '../src/application/mattermost/services/automation-service';
+import { MattermostProvider } from '../src/domain/mattermost/providers/mattermost-provider.interface';
+import { loadConfig } from '../src/config/env';
+
+describe('MattermostAutomationService', () => {
+  let mockProvider: MattermostProvider;
+
+  beforeEach(() => {
+    mockProvider = {
+      getMe: vi.fn().mockResolvedValue({
+        id: 'usr_correct_123',
+        username: 'egagofur',
+        roles: 'system_user',
+      }),
+      getChannel: vi.fn().mockResolvedValue({
+        id: 'chan_eng_1234567890abcdef',
+        name: 'engineering',
+        displayName: 'Engineering',
+        type: 'O',
+      }),
+      listChannels: vi.fn().mockResolvedValue([
+        {
+          id: 'chan_eng_1234567890abcdef',
+          name: 'engineering',
+          displayName: 'Engineering',
+          type: 'O',
+        },
+      ]),
+      sendMessage: vi.fn().mockResolvedValue({
+        id: 'post_123',
+        channelId: 'chan_eng_1234567890abcdef',
+        userId: 'usr_correct_123',
+        message: 'Test message',
+        createdAt: new Date(),
+      }),
+      replyToMessage: vi.fn().mockResolvedValue({
+        id: 'post_124',
+        channelId: 'chan_eng_1234567890abcdef',
+        userId: 'usr_correct_123',
+        rootId: 'post_123',
+        message: 'Test reply',
+        createdAt: new Date(),
+      }),
+      getMessages: vi.fn().mockResolvedValue([]),
+    };
+  });
+
+  it('runs whoami successfully', async () => {
+    const config = loadConfig({
+      MATTERMOST_URL: 'https://mattermost.example.com',
+      MATTERMOST_TOKEN: 'token-123',
+      MATTERMOST_EXPECTED_USER_ID: 'usr_correct_123',
+    });
+
+    const service = new MattermostAutomationService({ config, provider: mockProvider });
+    const user = await service.whoami();
+
+    expect(user.id).toBe('usr_correct_123');
+    expect(user.username).toBe('egagofur');
+  });
+
+  it('fails whoami when expected user ID does not match', async () => {
+    const config = loadConfig({
+      MATTERMOST_URL: 'https://mattermost.example.com',
+      MATTERMOST_TOKEN: 'token-123',
+      MATTERMOST_EXPECTED_USER_ID: 'usr_different_456',
+    });
+
+    const service = new MattermostAutomationService({ config, provider: mockProvider });
+    await expect(service.whoami()).rejects.toThrow(/does not match expected user ID/);
+  });
+
+  it('sends message and resolves channel name', async () => {
+    const config = loadConfig({
+      MATTERMOST_URL: 'https://mattermost.example.com',
+      MATTERMOST_TOKEN: 'token-123',
+    });
+
+    const service = new MattermostAutomationService({ config, provider: mockProvider });
+    const result = await service.sendMessage({
+      channel: 'engineering',
+      message: 'MR !123 ready',
+    });
+
+    expect(result.id).toBe('post_123');
+    expect(result.channelId).toBe('chan_eng_1234567890abcdef');
+    expect(mockProvider.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channelId: 'chan_eng_1234567890abcdef',
+        message: 'MR !123 ready',
+      })
+    );
+  });
+
+  it('executes structured action payload safely returning ActionResult', async () => {
+    const config = loadConfig({
+      MATTERMOST_URL: 'https://mattermost.example.com',
+      MATTERMOST_TOKEN: 'token-123',
+    });
+
+    const service = new MattermostAutomationService({ config, provider: mockProvider });
+    const actionResult = await service.executeAction({
+      action: 'send_message',
+      channel: 'engineering',
+      message: 'Automated notification',
+    });
+
+    expect(actionResult.success).toBe(true);
+    expect((actionResult.data as { id: string }).id).toBe('post_123');
+  });
+
+  it('returns structured error when action payload is invalid', async () => {
+    const config = loadConfig({
+      MATTERMOST_URL: 'https://mattermost.example.com',
+      MATTERMOST_TOKEN: 'token-123',
+    });
+
+    const service = new MattermostAutomationService({ config, provider: mockProvider });
+    const actionResult = await service.executeAction({
+      action: 'invalid_action_type',
+    });
+
+    expect(actionResult.success).toBe(false);
+    expect(actionResult.error?.code).toBe('VALIDATION_ERROR');
+  });
+});

@@ -1,0 +1,163 @@
+import {
+  Channel,
+  GetChannelInput,
+  GetMessagesInput,
+  Post,
+  ReplyToMessageInput,
+  SendMessageInput,
+  SendMessageResult,
+  User,
+} from '../../../domain/mattermost/entities';
+import { MattermostProvider } from '../../../domain/mattermost/providers/mattermost-provider.interface';
+import { MattermostApiClient, MattermostRawChannel, MattermostRawPost, MattermostRawUser } from './client';
+import { Logger, defaultLogger } from '../services/logger';
+
+export class MattermostApiProvider implements MattermostProvider {
+  private client: MattermostApiClient;
+  private logger: Logger;
+
+  constructor(client: MattermostApiClient, logger?: Logger) {
+    this.client = client;
+    this.logger = logger ?? defaultLogger;
+  }
+
+  private mapUser(raw: MattermostRawUser): User {
+    return {
+      id: raw.id,
+      username: raw.username,
+      email: raw.email,
+      firstName: raw.first_name,
+      lastName: raw.last_name,
+      nickname: raw.nickname,
+      roles: raw.roles,
+      createAt: raw.create_at,
+    };
+  }
+
+  private mapChannel(raw: MattermostRawChannel): Channel {
+    return {
+      id: raw.id,
+      teamId: raw.team_id,
+      name: raw.name,
+      displayName: raw.display_name,
+      type: raw.type,
+      header: raw.header,
+      purpose: raw.purpose,
+    };
+  }
+
+  private mapPost(raw: MattermostRawPost): Post {
+    return {
+      id: raw.id,
+      createAt: raw.create_at,
+      updateAt: raw.update_at,
+      deleteAt: raw.delete_at,
+      userId: raw.user_id,
+      channelId: raw.channel_id,
+      rootId: raw.root_id,
+      message: raw.message,
+      type: raw.type,
+      hashtags: raw.hashtags,
+      props: raw.props,
+    };
+  }
+
+  public async getMe(): Promise<User> {
+    const raw = await this.client.getMe();
+    return this.mapUser(raw);
+  }
+
+  public async getChannel(input: GetChannelInput): Promise<Channel> {
+    if (input.channelId) {
+      const raw = await this.client.getChannel(input.channelId);
+      return this.mapChannel(raw);
+    }
+
+    if (input.channelName && input.teamId) {
+      const raw = await this.client.getChannelByName(input.teamId, input.channelName);
+      return this.mapChannel(raw);
+    }
+
+    // Fallback: list channels and search
+    const channels = await this.listChannels(input.teamId);
+    const targetName = (input.channelName || '').toLowerCase();
+    const matched = channels.find(
+      (c) => c.name.toLowerCase() === targetName || c.displayName.toLowerCase() === targetName
+    );
+
+    if (matched) {
+      return matched;
+    }
+
+    throw new Error(`Channel '${input.channelName}' not found.`);
+  }
+
+  public async listChannels(teamId?: string): Promise<Channel[]> {
+    if (teamId) {
+      try {
+        const userChannels = await this.client.getChannelsForUserInTeam(teamId);
+        return userChannels.map((c) => this.mapChannel(c));
+      } catch (err) {
+        this.logger.debug(`Could not get user channels for team ${teamId}, trying all channels`);
+        const allChannels = await this.client.getAllChannelsForTeam(teamId);
+        return allChannels.map((c) => this.mapChannel(c));
+      }
+    }
+
+    // Query user's teams and fetch channels from all of them
+    const teams = await this.client.getMyTeams();
+    const allChannels: Channel[] = [];
+
+    for (const team of teams) {
+      try {
+        const channels = await this.client.getChannelsForUserInTeam(team.id);
+        allChannels.push(...channels.map((c) => this.mapChannel(c)));
+      } catch (err) {
+        this.logger.debug(`Could not list channels for team ${team.name} (${team.id})`);
+      }
+    }
+
+    return allChannels;
+  }
+
+  public async sendMessage(input: SendMessageInput): Promise<SendMessageResult> {
+    this.logger.debug(`Sending message to channel '${input.channelId}'...`);
+    const rawPost = await this.client.createPost(input.channelId, input.message, input.rootId);
+    return {
+      id: rawPost.id,
+      channelId: rawPost.channel_id,
+      userId: rawPost.user_id,
+      message: rawPost.message,
+      rootId: rawPost.root_id || undefined,
+      createdAt: new Date(rawPost.create_at),
+    };
+  }
+
+  public async replyToMessage(input: ReplyToMessageInput): Promise<SendMessageResult> {
+    this.logger.debug(`Replying to thread '${input.rootId}' in channel '${input.channelId}'...`);
+    const rawPost = await this.client.createPost(input.channelId, input.message, input.rootId);
+    return {
+      id: rawPost.id,
+      channelId: rawPost.channel_id,
+      userId: rawPost.user_id,
+      message: rawPost.message,
+      rootId: rawPost.root_id || undefined,
+      createdAt: new Date(rawPost.create_at),
+    };
+  }
+
+  public async getMessages(input: GetMessagesInput): Promise<Post[]> {
+    const rawList = await this.client.getPostsForChannel(
+      input.channelId,
+      0,
+      input.limit || 30,
+      input.since
+    );
+
+    // Mattermost returns order: string[] and posts: Record<string, Post>
+    return rawList.order
+      .map((id) => rawList.posts[id])
+      .filter(Boolean)
+      .map((p) => this.mapPost(p));
+  }
+}
