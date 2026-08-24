@@ -1,6 +1,6 @@
 {
   "name": "mattermost-agent",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Production-grade Mattermost automation CLI & TypeScript SDK. Send messages, reply to threads, discover channels, and trigger CI/AI actions as your personal account with Playwright (zero-admin) and REST API v4.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
