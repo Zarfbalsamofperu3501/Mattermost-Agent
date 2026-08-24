@@ -1,5 +1,5 @@
 // ==============================================================================
-// Mattermost Agent — High-Agency Anti-Slop Frontend Controller (Taste Skill)
+// Mattermost Agent — API Workbench Controller (Baileys.wiki Style)
 // ==============================================================================
 
 const state = {
@@ -11,12 +11,100 @@ const state = {
   messages: [],
   threads: [],
   cronJobs: [],
+  activeEndpoint: 'send_message',
   activeCodeLang: 'curl',
   theme: 'dark',
   currentChatView: 'chat', // 'chat' or 'threads'
 };
 
-// --- Lifecycle Initialization ---
+const API_DEFINITIONS = {
+  send_message: {
+    method: 'POST',
+    path: '/api/messages/send',
+    title: 'POST /api/messages/send',
+    desc: 'Dispatch an automated top-level message to any configured Mattermost channel.',
+    params: [
+      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
+      { name: 'message', type: 'string', default: 'Deployment completed successfully.', required: true },
+      { name: 'from', type: 'string', default: 'Google Antigravity', required: false },
+    ],
+  },
+  reply_thread: {
+    method: 'POST',
+    path: '/api/messages/reply',
+    title: 'POST /api/messages/reply',
+    desc: 'Post a reply into an active thread using root post ID, shortcut (:1), or search query.',
+    params: [
+      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
+      { name: 'rootId', type: 'string', default: ':1', required: true },
+      { name: 'message', type: 'string', default: 'Code review approved and verified.', required: true },
+      { name: 'from', type: 'string', default: 'AI Agent', required: false },
+    ],
+  },
+  get_channels: {
+    method: 'GET',
+    path: '/api/channels',
+    title: 'GET /api/channels',
+    desc: 'Retrieve all mapped channels, aliases, and active enabled flags.',
+    params: [],
+  },
+  get_threads: {
+    method: 'GET',
+    path: '/api/threads',
+    title: 'GET /api/threads',
+    desc: 'Discover and summarize active discussion threads with reply counts and shortcuts.',
+    params: [
+      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
+      { name: 'limit', type: 'number', default: '20', required: false },
+    ],
+  },
+  get_history: {
+    method: 'GET',
+    path: '/api/messages/history',
+    title: 'GET /api/messages/history',
+    desc: 'Read recent messages and conversation history from a specific channel.',
+    params: [
+      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
+      { name: 'limit', type: 'number', default: '15', required: false },
+    ],
+  },
+  get_cron: {
+    method: 'GET',
+    path: '/api/cron',
+    title: 'GET /api/cron',
+    desc: 'List all declarative cron jobs, recurring schedules, and next run times.',
+    params: [],
+  },
+  run_cron: {
+    method: 'POST',
+    path: '/api/cron/run',
+    title: 'POST /api/cron/run',
+    desc: 'Trigger a single immediate execution run of a configured cron job.',
+    params: [{ name: 'jobName', type: 'string', default: 'daily-standup', required: true }],
+  },
+  save_cron: {
+    method: 'POST',
+    path: '/api/cron/save',
+    title: 'POST /api/cron/save',
+    desc: 'Create or update a declarative cron job configuration in cron.yml.',
+    params: [
+      { name: 'name', type: 'string', default: 'daily-standup', required: true },
+      { name: 'schedule', type: 'string', default: '0 9 * * 1-5', required: true },
+      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
+      { name: 'message', type: 'string', default: 'Daily standup reminder: share your updates.', required: true },
+      { name: 'from', type: 'string', default: 'Daily Bot', required: false },
+    ],
+  },
+  get_status: {
+    method: 'GET',
+    path: '/api/status',
+    title: 'GET /api/status',
+    desc: 'Inspect session authentication state, logged in user, and provider health.',
+    params: [],
+  },
+};
+
+// --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initNavigation();
@@ -31,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initApiPlayground();
 });
 
-// --- Theme Management ---
+// --- Theme ---
 function initTheme() {
   const savedTheme = localStorage.getItem('mm_agent_theme') || 'dark';
   setTheme(savedTheme);
@@ -48,27 +136,39 @@ function setTheme(theme) {
   localStorage.setItem('mm_agent_theme', theme);
 }
 
-// --- Navigation Tabs & Deep Links ---
+// --- Navigation & Endpoints ---
 function initNavigation() {
-  const navButtons = document.querySelectorAll('.nav-button');
-  navButtons.forEach((btn) => {
+  document.querySelectorAll('.nav-item').forEach((btn) => {
     btn.addEventListener('click', () => {
       const tabId = btn.getAttribute('data-tab');
       switchTab(tabId);
     });
   });
 
+  document.querySelectorAll('.nav-endpoint-item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const endpoint = btn.getAttribute('data-endpoint');
+      selectEndpoint(endpoint);
+    });
+  });
+
   if (window.location.hash) {
     const hashTab = window.location.hash.replace('#', '');
-    if (document.getElementById(`view-${hashTab}`)) {
+    if (API_DEFINITIONS[hashTab]) {
+      selectEndpoint(hashTab);
+    } else if (document.getElementById(`view-${hashTab}`)) {
       switchTab(hashTab);
     }
   }
 }
 
 function switchTab(tabId) {
-  document.querySelectorAll('.nav-button').forEach((btn) => {
+  document.querySelectorAll('.nav-item').forEach((btn) => {
     btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+  });
+
+  document.querySelectorAll('.nav-endpoint-item').forEach((btn) => {
+    btn.classList.remove('active');
   });
 
   document.querySelectorAll('.view-panel').forEach((panel) => {
@@ -84,10 +184,32 @@ function switchTab(tabId) {
   }
 }
 
+function selectEndpoint(endpointKey) {
+  if (!API_DEFINITIONS[endpointKey]) return;
+  state.activeEndpoint = endpointKey;
+
+  document.querySelectorAll('.nav-item').forEach((btn) => btn.classList.remove('active'));
+  document.querySelectorAll('.nav-endpoint-item').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-endpoint') === endpointKey);
+  });
+
+  document.querySelectorAll('.view-panel').forEach((panel) => {
+    panel.classList.toggle('active', panel.id === 'view-api');
+  });
+
+  window.location.hash = endpointKey;
+  renderApiPlayground();
+}
+
 function initKeyboardShortcuts() {
   window.addEventListener('keydown', (e) => {
-    // Switch tabs with numbers 1..5 if not focused in an input
     const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('channel-search-input')?.focus();
+    }
+
     if (!isInput && !e.metaKey && !e.ctrlKey) {
       if (e.key === '1') switchTab('overview');
       if (e.key === '2') switchTab('channels');
@@ -103,21 +225,26 @@ function initKeyboardShortcuts() {
       }
     }
   });
+
+  document.getElementById('btn-quick-search').addEventListener('click', () => {
+    switchTab('channels');
+    document.getElementById('channel-search-input')?.focus();
+  });
 }
 
-// --- Server-Sent Events (SSE) Stream ---
+// --- SSE Event Stream ---
 function initSSE() {
   const eventSource = new EventSource('/api/events');
 
   eventSource.addEventListener('auth:starting', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[AUTH] ${data.message}`, 'log-system');
+    addLog(`[AUTH] ${data.message}`, 'log-sys');
     updateConnectionBadge('logging-in', 'Opening Browser...');
   });
 
   eventSource.addEventListener('auth:success', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[AUTH] Authenticated as @${data.username}`, 'log-sent');
+    addLog(`[AUTH] Authenticated as @${data.username}`, 'log-ok');
     showToast(data.message);
     fetchStatus();
     fetchChannels();
@@ -125,14 +252,14 @@ function initSSE() {
 
   eventSource.addEventListener('auth:failed', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[ERROR] Auth failed: ${data.message}`, 'log-error');
+    addLog(`[ERROR] Auth failed: ${data.message}`, 'log-fail');
     showToast(`Authentication failed: ${data.message}`);
     fetchStatus();
   });
 
   eventSource.addEventListener('message:sent', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[MSG] #${data.channel}: "${data.message.slice(0, 35)}"`, 'log-sent');
+    addLog(`[MSG] #${data.channel}: "${data.message.slice(0, 35)}"`, 'log-ok');
     if (state.currentChannel === data.channel) {
       loadChannelContent(state.currentChannel);
     }
@@ -140,7 +267,7 @@ function initSSE() {
 
   eventSource.addEventListener('message:replied', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[REPLY] #${data.channel} [${data.rootId}]: "${data.message.slice(0, 35)}"`, 'log-sent');
+    addLog(`[REPLY] #${data.channel} [${data.rootId}]: "${data.message.slice(0, 35)}"`, 'log-ok');
     if (state.currentChannel === data.channel) {
       loadChannelContent(state.currentChannel);
     }
@@ -148,18 +275,18 @@ function initSSE() {
 
   eventSource.addEventListener('cron:executed', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[CRON] Scheduled job '${data.jobName}' executed`, 'log-sent');
+    addLog(`[CRON] Scheduled job '${data.jobName}' executed`, 'log-ok');
     fetchCronJobs();
   });
 
   eventSource.addEventListener('cron:saved', (e) => {
     const data = JSON.parse(e.data);
-    addLog(`[CONFIG] Cron job '${data.jobName}' updated`, 'log-system');
+    addLog(`[CONFIG] Cron job '${data.jobName}' updated`, 'log-sys');
     fetchCronJobs();
   });
 }
 
-// --- Status & Authentication ---
+// --- Status & Auth ---
 async function fetchStatus() {
   try {
     const res = await fetch('/api/status');
@@ -174,11 +301,9 @@ async function fetchStatus() {
     const userHandle = document.getElementById('user-handle');
     const metricUsername = document.getElementById('metric-username');
     const metricRoles = document.getElementById('metric-roles');
-    const metricProvider = document.getElementById('metric-provider');
     const metricServerUrl = document.getElementById('metric-server-url');
 
-    metricProvider.textContent = data.provider || 'playwright';
-    metricServerUrl.textContent = data.mattermostUrl || '-';
+    metricServerUrl.textContent = data.mattermostUrl || 'https://workspace.dot.co.id';
 
     if (data.authenticated && data.user) {
       updateConnectionBadge('connected', `@${data.user.username}`);
@@ -197,25 +322,24 @@ async function fetchStatus() {
     } else {
       updateConnectionBadge('disconnected', 'Disconnected');
       userAvatar.textContent = '?';
-      userDisplayName.textContent = 'Not Authenticated';
+      userDisplayName.textContent = 'Not Logged In';
       userHandle.textContent = '@offline';
       metricUsername.textContent = 'Disconnected';
       metricRoles.textContent = 'Click 1-Click Login';
     }
-  } catch (err) {
+  } catch {
     updateConnectionBadge('disconnected', 'Server Offline');
   }
 }
 
 function updateConnectionBadge(status, text) {
-  const badge = document.getElementById('connection-badge');
-  const badgeText = document.getElementById('connection-text');
-  badge.className = `status-indicator-pill status-${status}`;
-  badgeText.textContent = text;
+  const badge = document.getElementById('connection-status-pill');
+  const label = document.getElementById('connection-status-label');
+  badge.className = `status-pill status-${status}`;
+  label.textContent = text;
 }
 
-// 1-Click Auto Login Action
-document.getElementById('btn-auto-login').addEventListener('click', async () => {
+document.getElementById('btn-login-trigger').addEventListener('click', async () => {
   showToast('Launching interactive Playwright browser window...');
   updateConnectionBadge('logging-in', 'Opening Browser...');
 
@@ -224,7 +348,7 @@ document.getElementById('btn-auto-login').addEventListener('click', async () => 
     const data = await res.json();
     if (res.ok) {
       showToast(data.message);
-      addLog('[AUTH] Interactive browser window opened.', 'log-system');
+      addLog('[AUTH] Interactive browser window opened.', 'log-sys');
     } else {
       showToast(data.message || 'Login request rejected');
     }
@@ -233,7 +357,7 @@ document.getElementById('btn-auto-login').addEventListener('click', async () => 
   }
 });
 
-// --- Channels Management ---
+// --- Channels ---
 async function fetchChannels() {
   try {
     const res = await fetch('/api/channels');
@@ -241,11 +365,12 @@ async function fetchChannels() {
     state.channels = data.channels || [];
 
     document.getElementById('metric-channels-count').textContent = state.channels.length;
+    document.getElementById('sidebar-channels-count').textContent = state.channels.length;
     const enabledCount = state.channels.filter((c) => c.enabled).length;
-    document.getElementById('metric-channels-enabled').textContent = `${enabledCount} enabled`;
+    document.getElementById('metric-channels-enabled').textContent = `${enabledCount} active`;
 
     populateChannelSelects();
-    renderChannelList();
+    renderChannelTree();
   } catch (err) {
     console.error('Failed to load channels:', err);
   }
@@ -273,10 +398,10 @@ function populateChannelSelects() {
     });
   });
 
-  renderApiParams();
+  renderApiPlayground();
 }
 
-function renderChannelList() {
+function renderChannelTree() {
   const container = document.getElementById('channels-list');
   const searchInput = document.getElementById('channel-search-input');
   const query = searchInput.value.toLowerCase();
@@ -297,25 +422,25 @@ function renderChannelList() {
 
   filtered.forEach((c) => {
     const item = document.createElement('div');
-    item.className = `channel-row-item ${c.alias === state.currentChannel ? 'active' : ''}`;
-    const dotClass = c.enabled ? 'channel-dot-enabled' : 'channel-dot-disabled';
+    item.className = `channel-tree-item ${c.alias === state.currentChannel ? 'active' : ''}`;
+    const dotClass = c.enabled ? 'channel-dot-on' : 'channel-dot-off';
     item.innerHTML = `
       <div style="display:flex;align-items:center;min-width:0;">
-        <span class="channel-status-dot ${dotClass}"></span>
-        <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">#${c.alias}</span>
+        <span class="channel-dot ${dotClass}"></span>
+        <span class="truncate">#${c.alias}</span>
       </div>
-      <span style="font-size:0.68rem;color:var(--text-muted);">${c.displayName ? c.displayName.slice(0, 14) : ''}</span>
+      <span style="font-size:0.65rem;color:var(--text-muted);">${c.displayName ? c.displayName.slice(0, 12) : ''}</span>
     `;
     item.addEventListener('click', () => {
       state.currentChannel = c.alias;
-      renderChannelList();
+      renderChannelTree();
       loadChannelContent(c.alias);
     });
     container.appendChild(item);
   });
 }
 
-document.getElementById('channel-search-input').addEventListener('input', renderChannelList);
+document.getElementById('channel-search-input').addEventListener('input', renderChannelTree);
 
 document.getElementById('btn-sync-channels').addEventListener('click', async () => {
   showToast('Syncing channels from Mattermost server...');
@@ -331,7 +456,7 @@ document.getElementById('btn-sync-channels').addEventListener('click', async () 
   }
 });
 
-// --- Chat & Thread Explorer ---
+// --- Channels & Live Chat Explorer ---
 function initChatView() {
   const btnChat = document.getElementById('btn-view-chat');
   const btnThreads = document.getElementById('btn-view-threads');
@@ -373,7 +498,6 @@ function initChatView() {
     document.getElementById('thread-reply-indicator').style.display = 'none';
   });
 
-  // Enter to send, Shift+Enter for newline
   const chatInput = document.getElementById('chat-input-message');
   chatInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -382,7 +506,6 @@ function initChatView() {
     }
   });
 
-  // Chat send form
   document.getElementById('form-chat-send').addEventListener('submit', async (e) => {
     e.preventDefault();
     const rootId = document.getElementById('chat-target-root-id').value;
@@ -478,28 +601,28 @@ function renderChatBubbles() {
     }
 
     const row = document.createElement('div');
-    row.className = `bubble-row ${isMe ? 'outgoing' : 'incoming'}`;
+    row.className = `chat-bubble-row ${isMe ? 'outgoing' : 'incoming'}`;
     row.innerHTML = `
-      <div class="bubble-avatar">${initials}</div>
-      <div class="bubble-payload">
-        <div class="bubble-meta-row">
-          <span class="bubble-author">${escapeHtml(username)}</span>
-          <span class="bubble-timestamp">${timeStr}</span>
+      <div class="chat-avatar-badge">${initials}</div>
+      <div class="chat-card">
+        <div class="chat-card-top">
+          <span class="chat-sender">${escapeHtml(username)}</span>
+          <span class="chat-time">${timeStr}</span>
         </div>
-        <div class="bubble-body">${escapeHtml(displayMessage)}</div>
-        <div class="bubble-footer-row">
-          ${fromAttribution ? `<span class="bubble-attribution-badge">~ from ${escapeHtml(fromAttribution)}</span>` : '<span></span>'}
-          <button class="btn-inline-reply" data-id="${msg.id}">
+        <div class="chat-text">${escapeHtml(displayMessage)}</div>
+        <div class="chat-card-bottom">
+          ${fromAttribution ? `<span class="attribution-pill">~ from ${escapeHtml(fromAttribution)}</span>` : '<span></span>'}
+          <button class="btn-inline-reply-action" data-id="${msg.id}">
             <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
-            <span>Reply in thread</span>
+            <span>Reply</span>
           </button>
         </div>
       </div>
     `;
 
-    row.querySelector('.btn-inline-reply').addEventListener('click', () => {
+    row.querySelector('.btn-inline-reply-action').addEventListener('click', () => {
       document.getElementById('chat-target-root-id').value = msg.id;
-      document.getElementById('reply-indicator-text').textContent = `Replying to message by ${username}`;
+      document.getElementById('reply-indicator-text').textContent = `Replying to ${username}`;
       document.getElementById('thread-reply-indicator').style.display = 'flex';
       document.getElementById('chat-input-message').focus();
     });
@@ -540,14 +663,14 @@ function renderThreadCards() {
 
   filtered.forEach((t, idx) => {
     const card = document.createElement('div');
-    card.className = 'thread-summary-card';
+    card.className = 'thread-row-card';
     const badgeText = t.shortcut || `:${idx + 1}`;
     card.innerHTML = `
-      <div class="thread-card-header">
-        <span class="thread-id-pill">${badgeText}</span>
+      <div class="thread-card-meta">
+        <span class="thread-shortcut-tag">${badgeText}</span>
         <span>${t.relativeTime || ''} • ${t.replyCount} replies</span>
       </div>
-      <div class="thread-card-preview">${escapeHtml(t.messagePreview)}</div>
+      <div class="thread-card-body">${escapeHtml(t.messagePreview)}</div>
     `;
 
     card.addEventListener('click', () => {
@@ -630,7 +753,8 @@ async function fetchCronJobs() {
     const data = await res.json();
     state.cronJobs = data.jobs || [];
 
-    document.getElementById('metric-cron-count').textContent = state.cronJobs.filter((j) => j.enabled).length;
+    document.getElementById('metric-cron-count').textContent = `${state.cronJobs.filter((j) => j.enabled).length} jobs`;
+    document.getElementById('sidebar-cron-count').textContent = state.cronJobs.filter((j) => j.enabled).length;
 
     const nextJobs = state.cronJobs.filter((j) => j.nextRunAt).sort((a, b) => new Date(a.nextRunAt) - new Date(b.nextRunAt));
     if (nextJobs.length > 0) {
@@ -648,15 +772,15 @@ function renderCronTable() {
   tbody.innerHTML = '';
 
   if (state.cronJobs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="table-empty">No scheduled cron jobs configured. Click <strong>New Cron Job</strong> above.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="table-empty">No scheduled cron jobs. Click <strong>New Cron Job</strong> above.</td></tr>';
     return;
   }
 
   state.cronJobs.forEach((job) => {
     const tr = document.createElement('tr');
     const statusPill = job.enabled
-      ? '<span class="status-indicator-pill status-connected">Enabled</span>'
-      : '<span class="status-indicator-pill status-idle">Disabled</span>';
+      ? '<span class="status-chip status-ok">Enabled</span>'
+      : '<span class="status-chip status-idle">Disabled</span>';
     const nextRun = job.nextRunAt ? new Date(job.nextRunAt).toLocaleString() : (job.enabled ? 'Pending' : '-');
     const lastStatus = job.lastStatus === 'success' ? '✓ success' : job.lastStatus === 'failed' ? '✕ failed' : '— never';
 
@@ -738,7 +862,7 @@ async function toggleCronJob(jobName, enabled) {
 
 document.getElementById('btn-refresh-cron').addEventListener('click', fetchCronJobs);
 
-// --- Quick Forms ---
+// --- Forms ---
 function initForms() {
   document.getElementById('form-quick-send').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -754,7 +878,7 @@ function initForms() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast('Message sent successfully.');
+        showToast('Message dispatched.');
         document.getElementById('quick-send-message').value = '';
       } else {
         showToast(`Send failed: ${data.error}`);
@@ -763,95 +887,13 @@ function initForms() {
       showToast('Network error while dispatching message.');
     }
   });
-
-  document.getElementById('btn-quick-send').addEventListener('click', () => {
-    switchTab('overview');
-    document.getElementById('quick-send-message').focus();
-  });
 }
 
-// --- Interactive API Playground ---
-const API_ENDPOINTS = {
-  send_message: {
-    method: 'POST',
-    path: '/api/messages/send',
-    params: [
-      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
-      { name: 'message', type: 'string', default: 'Hello from REST API!', required: true },
-      { name: 'from', type: 'string', default: 'Google Antigravity', required: false },
-    ],
-  },
-  reply_thread: {
-    method: 'POST',
-    path: '/api/messages/reply',
-    params: [
-      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
-      { name: 'rootId', type: 'string', default: ':1', required: true },
-      { name: 'message', type: 'string', default: 'Approved and merged.', required: true },
-      { name: 'from', type: 'string', default: 'AI Agent', required: false },
-    ],
-  },
-  get_channels: {
-    method: 'GET',
-    path: '/api/channels',
-    params: [],
-  },
-  get_threads: {
-    method: 'GET',
-    path: '/api/threads',
-    params: [
-      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
-      { name: 'limit', type: 'number', default: '20', required: false },
-    ],
-  },
-  get_history: {
-    method: 'GET',
-    path: '/api/messages/history',
-    params: [
-      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
-      { name: 'limit', type: 'number', default: '10', required: false },
-    ],
-  },
-  get_cron: {
-    method: 'GET',
-    path: '/api/cron',
-    params: [],
-  },
-  run_cron: {
-    method: 'POST',
-    path: '/api/cron/run',
-    params: [{ name: 'jobName', type: 'string', default: 'daily-standup', required: true }],
-  },
-  save_cron: {
-    method: 'POST',
-    path: '/api/cron/save',
-    params: [
-      { name: 'name', type: 'string', default: 'daily-standup', required: true },
-      { name: 'schedule', type: 'string', default: '0 9 * * 1-5', required: true },
-      { name: 'channel', type: 'channel_select', default: 'town-square', required: true },
-      { name: 'message', type: 'string', default: 'Daily standup reminder', required: true },
-      { name: 'from', type: 'string', default: 'Daily Bot', required: false },
-    ],
-  },
-  get_status: {
-    method: 'GET',
-    path: '/api/status',
-    params: [],
-  },
-  auto_login: {
-    method: 'POST',
-    path: '/api/auth/login',
-    params: [],
-  },
-};
-
+// --- Interactive API Playground (Baileys.wiki-Style) ---
 function initApiPlayground() {
-  const select = document.getElementById('api-endpoint-select');
-  select.addEventListener('change', renderApiParams);
-
-  document.querySelectorAll('.code-tab-btn').forEach((tab) => {
+  document.querySelectorAll('.code-tab-item').forEach((tab) => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.code-tab-btn').forEach((t) => t.classList.remove('active'));
+      document.querySelectorAll('.code-tab-item').forEach((t) => t.classList.remove('active'));
       tab.classList.add('active');
       state.activeCodeLang = tab.getAttribute('data-lang');
       updateGeneratedCode();
@@ -860,24 +902,28 @@ function initApiPlayground() {
 
   document.getElementById('btn-api-execute').addEventListener('click', executeApiRequest);
 
-  renderApiParams();
+  renderApiPlayground();
 }
 
-function renderApiParams() {
-  const select = document.getElementById('api-endpoint-select');
-  if (!select) return;
-  const endpointKey = select.value;
-  const def = API_ENDPOINTS[endpointKey];
-  const container = document.getElementById('api-params-container');
+function renderApiPlayground() {
+  const def = API_DEFINITIONS[state.activeEndpoint] || API_DEFINITIONS.send_message;
 
+  const methodEl = document.getElementById('api-active-method');
+  methodEl.textContent = def.method;
+  methodEl.className = `method-badge-lg ${def.method === 'POST' ? 'method-post' : 'method-get'}`;
+
+  document.getElementById('api-active-route').textContent = def.path;
+  document.getElementById('api-active-desc').textContent = def.desc;
+
+  const container = document.getElementById('api-params-container');
   container.innerHTML = '';
 
   if (def.params.length === 0) {
-    container.innerHTML = '<p style="font-size:0.78rem;color:var(--text-muted);padding:8px 0;">No parameters required for this endpoint.</p>';
+    container.innerHTML = '<p style="font-size:0.75rem;color:var(--text-muted);padding:8px 0;">No parameters required for this endpoint.</p>';
   } else {
     def.params.forEach((param) => {
-      const group = document.createElement('div');
-      group.className = 'form-field';
+      const col = document.createElement('div');
+      col.className = 'form-col';
 
       if (param.type === 'channel_select') {
         let optionsHtml = '';
@@ -885,22 +931,22 @@ function renderApiParams() {
           optionsHtml += `<option value="${c.alias}" ${c.alias === param.default ? 'selected' : ''}>#${c.alias} (${c.displayName || c.channel})</option>`;
         });
 
-        group.innerHTML = `
-          <label class="field-label">${param.name} (Searchable Channel) ${param.required ? '<span style="color:var(--status-danger)">*</span>' : ''}</label>
-          <select class="field-input api-input" data-param="${param.name}">
+        col.innerHTML = `
+          <label class="input-label">${param.name} (Searchable Channel) ${param.required ? '<span style="color:var(--accent-rose)">*</span>' : ''}</label>
+          <select class="custom-select api-input" data-param="${param.name}">
             ${optionsHtml || `<option value="${param.default}">${param.default}</option>`}
           </select>
         `;
-        group.querySelector('select').addEventListener('change', updateGeneratedCode);
+        col.querySelector('select').addEventListener('change', updateGeneratedCode);
       } else {
-        group.innerHTML = `
-          <label class="field-label">${param.name} ${param.required ? '<span style="color:var(--status-danger)">*</span>' : ''}</label>
-          <input type="text" class="field-input api-input" data-param="${param.name}" value="${param.default}">
+        col.innerHTML = `
+          <label class="input-label">${param.name} ${param.required ? '<span style="color:var(--accent-rose)">*</span>' : ''}</label>
+          <input type="text" class="custom-input api-input" data-param="${param.name}" value="${param.default}">
         `;
-        group.querySelector('input').addEventListener('input', updateGeneratedCode);
+        col.querySelector('input').addEventListener('input', updateGeneratedCode);
       }
 
-      container.appendChild(group);
+      container.appendChild(col);
     });
   }
 
@@ -908,10 +954,7 @@ function renderApiParams() {
 }
 
 function getApiFormData() {
-  const select = document.getElementById('api-endpoint-select');
-  const endpointKey = select.value;
-  const def = API_ENDPOINTS[endpointKey];
-
+  const def = API_DEFINITIONS[state.activeEndpoint] || API_DEFINITIONS.send_message;
   const inputs = document.querySelectorAll('.api-input');
   const values = {};
   inputs.forEach((input) => {
@@ -964,9 +1007,9 @@ async function executeApiRequest() {
   const statusBadge = document.getElementById('api-response-status');
   const responseBody = document.getElementById('api-response-body');
 
-  statusBadge.className = 'status-pill status-executing';
+  statusBadge.className = 'status-chip status-loading';
   statusBadge.textContent = 'Executing...';
-  responseBody.textContent = 'Awaiting response...';
+  responseBody.textContent = 'Awaiting response from local gateway...';
 
   try {
     let url = def.path;
@@ -985,13 +1028,13 @@ async function executeApiRequest() {
     const duration = Math.round(performance.now() - startTime);
     const json = await res.json();
 
-    statusBadge.className = res.ok ? 'status-pill status-success-pill' : 'status-pill status-danger-pill';
+    statusBadge.className = res.ok ? 'status-chip status-ok' : 'status-chip status-err';
     statusBadge.textContent = `${res.status} ${res.statusText} (${duration}ms)`;
     responseBody.textContent = JSON.stringify(json, null, 2);
 
-    addLog(`[API] ${def.method} ${url} -> ${res.status} (${duration}ms)`, res.ok ? 'log-sent' : 'log-error');
+    addLog(`[API] ${def.method} ${url} -> ${res.status} (${duration}ms)`, res.ok ? 'log-ok' : 'log-fail');
   } catch (err) {
-    statusBadge.className = 'status-pill status-danger-pill';
+    statusBadge.className = 'status-chip status-err';
     statusBadge.textContent = 'Network Error';
     responseBody.textContent = err.message;
   }
@@ -1009,35 +1052,35 @@ function copySnippet(id) {
   showToast('cURL command copied to clipboard.');
 }
 
-// --- Live Console Logging ---
-function addLog(text, levelClass = 'log-system') {
+// --- Live Console Stream ---
+function addLog(text, levelClass = 'log-sys') {
   const consoleEl = document.getElementById('logs-console');
   if (!consoleEl) return;
   const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const entry = document.createElement('div');
-  entry.className = `log-line ${levelClass}`;
-  entry.innerHTML = `<span class="log-ts">[${time}]</span> ${escapeHtml(text)}`;
+  entry.className = `log-entry ${levelClass}`;
+  entry.innerHTML = `<span class="log-time">[${time}]</span> ${escapeHtml(text)}`;
   consoleEl.appendChild(entry);
   consoleEl.scrollTop = consoleEl.scrollHeight;
 }
 
 document.getElementById('btn-clear-logs').addEventListener('click', () => {
-  document.getElementById('logs-console').innerHTML = '<div class="log-line log-system">[00:00:00] Logs cleared.</div>';
+  document.getElementById('logs-console').innerHTML = '<div class="log-entry log-sys">[00:00:00] Stream logs cleared.</div>';
 });
 
-// --- Toast Notifications ---
+// --- Toast Stack ---
 function showToast(message) {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');
-  toast.className = 'toast-item';
+  toast.className = 'toast-pill';
   toast.textContent = message;
   container.appendChild(toast);
 
   setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateY(6px)';
-    setTimeout(() => toast.remove(), 160);
-  }, 3200);
+    setTimeout(() => toast.remove(), 140);
+  }, 3000);
 }
 
 function escapeHtml(str) {

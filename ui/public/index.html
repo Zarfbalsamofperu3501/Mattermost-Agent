@@ -3,207 +3,217 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mattermost Agent — Developer Gateway & Dashboard</title>
+  <title>Mattermost Agent — API Workbench & Documentation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <!-- Header -->
-  <header class="app-header">
-    <div class="header-left">
-      <div class="brand-badge">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
+  <!-- Global Top Header -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">Mattermost Agent</span>
+          <span class="brand-divider">/</span>
+          <span class="brand-docs">Workbench</span>
+        </div>
+        <span class="badge-version">v1.3.0</span>
       </div>
-      <div class="brand-title">
-        <span class="app-title">Mattermost Agent</span>
-        <span class="breadcrumb-sep">/</span>
-        <span class="app-subtitle">Gateway & Dashboard</span>
-      </div>
-      <span class="version-tag">v1.3.0</span>
     </div>
 
-    <div class="header-right">
-      <div id="connection-badge" class="status-indicator-pill status-disconnected">
-        <span class="status-dot"></span>
-        <span id="connection-text">Connecting...</span>
+    <div class="topbar-center">
+      <div class="quick-search-trigger" id="btn-quick-search">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <span class="search-placeholder">Search endpoints, channels, or commands...</span>
+        <span class="search-kbd">⌘K</span>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <div id="connection-status-pill" class="status-pill status-disconnected">
+        <span class="status-indicator-dot"></span>
+        <span id="connection-status-label">Checking Session...</span>
       </div>
 
-      <button id="btn-auto-login" class="btn btn-secondary btn-sm">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>
-        </svg>
+      <button id="btn-login-trigger" class="btn btn-sm btn-outline">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
         <span>1-Click Login</span>
       </button>
 
-      <button id="btn-theme-toggle" class="btn btn-ghost btn-icon" title="Toggle Theme (Light / Dark)">
-        <svg id="theme-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="5"></circle>
-          <line x1="12" y1="1" x2="12" y2="3"></line>
-          <line x1="12" y1="21" x2="12" y2="23"></line>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-          <line x1="1" y1="12" x2="3" y2="12"></line>
-          <line x1="21" y1="12" x2="23" y2="12"></line>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-        </svg>
+      <a href="/api/openapi.json" target="_blank" class="btn btn-sm btn-ghost" title="OpenAPI Spec">
+        <span>OpenAPI</span>
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+      </a>
+
+      <button id="btn-theme-toggle" class="btn btn-icon btn-ghost" title="Toggle Dark/Light Mode">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
       </button>
     </div>
   </header>
 
-  <!-- App Shell -->
-  <div class="app-shell">
-    <!-- Sidebar -->
+  <!-- Full Height Workbench Container -->
+  <div class="workbench">
+    <!-- Left Navigation Sidebar -->
     <aside class="sidebar">
-      <div class="sidebar-section-title">Navigation</div>
-      <nav class="sidebar-nav">
-        <button class="nav-button active" data-tab="overview">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
-          <span>Overview</span>
-          <span class="shortcut-badge">1</span>
-        </button>
+      <div class="sidebar-scroll">
+        <!-- Overview & Core -->
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">Platform</div>
+          <button class="nav-item active" data-tab="overview">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <span>Overview & HUD</span>
+          </button>
+          <button class="nav-item" data-tab="channels">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>
+            <span>Channels & Live Chat</span>
+            <span class="nav-counter" id="sidebar-channels-count">61</span>
+          </button>
+          <button class="nav-item" data-tab="cron">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span>Cron Scheduler</span>
+            <span class="nav-counter" id="sidebar-cron-count">0</span>
+          </button>
+          <button class="nav-item" data-tab="logs">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            <span>Activity Stream (SSE)</span>
+          </button>
+        </div>
 
-        <button class="nav-button" data-tab="channels">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="4" y1="9" x2="20" y2="9"></line>
-            <line x1="4" y1="15" x2="20" y2="15"></line>
-            <line x1="10" y1="3" x2="8" y2="21"></line>
-            <line x1="16" y1="3" x2="14" y2="21"></line>
-          </svg>
-          <span>Channels & Chat</span>
-          <span class="shortcut-badge">2</span>
-        </button>
+        <!-- API Reference / Endpoints (Baileys.wiki style list) -->
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">API Endpoints (Baileys.wiki)</div>
+          <button class="nav-endpoint-item" data-endpoint="send_message">
+            <span class="method-tag method-post">POST</span>
+            <span class="endpoint-route">/api/messages/send</span>
+          </button>
+          <button class="nav-endpoint-item" data-endpoint="reply_thread">
+            <span class="method-tag method-post">POST</span>
+            <span class="endpoint-route">/api/messages/reply</span>
+          </button>
+          <button class="nav-endpoint-item" data-endpoint="get_channels">
+            <span class="method-tag method-get">GET</span>
+            <span class="endpoint-route">/api/channels</span>
+          </button>
+          <button class="nav-endpoint-item" data-endpoint="get_threads">
+            <span class="method-tag method-get">GET</span>
+            <span class="endpoint-route">/api/threads</span>
+          </button>
+          <button class="nav-endpoint-item" data-endpoint="get_history">
+            <span class="method-tag method-get">GET</span>
+            <span class="endpoint-route">/api/messages/history</span>
+          </button>
+          <button class="nav-endpoint-item" data-endpoint="get_cron">
+            <span class="method-tag method-get">GET</span>
+            <span class="endpoint-route">/api/cron</span>
+          </button>
+          <button class="nav-endpoint-item" data-endpoint="run_cron">
+            <span class="method-tag method-post">POST</span>
+            <span class="endpoint-route">/api/cron/run</span>
+          </button>
+          <button class="nav-endpoint-item" data-endpoint="save_cron">
+            <span class="method-tag method-post">POST</span>
+            <span class="endpoint-route">/api/cron/save</span>
+          </button>
+          <button class="nav-endpoint-item" data-endpoint="get_status">
+            <span class="method-tag method-get">GET</span>
+            <span class="endpoint-route">/api/status</span>
+          </button>
+        </div>
+      </div>
 
-        <button class="nav-button" data-tab="cron">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12 16 14"></polyline>
-          </svg>
-          <span>Cron Scheduler</span>
-          <span class="shortcut-badge">3</span>
-        </button>
-
-        <button class="nav-button" data-tab="api">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="16 18 22 12 16 6"></polyline>
-            <polyline points="8 6 2 12 8 18"></polyline>
-          </svg>
-          <span>API Playground</span>
-          <span class="tag-pill">REST</span>
-        </button>
-
-        <button class="nav-button" data-tab="logs">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="4 17 10 11 4 5"></polyline>
-            <line x1="12" y1="19" x2="20" y2="19"></line>
-          </svg>
-          <span>Live Activity</span>
-        </button>
-      </nav>
-
+      <!-- User Account Tray -->
       <div class="sidebar-footer">
-        <div class="user-session-card" id="user-profile-card">
+        <div class="user-tray">
           <div class="user-avatar" id="user-avatar">?</div>
-          <div class="user-meta">
-            <div class="user-name" id="user-display-name">Not Authenticated</div>
-            <div class="user-handle" id="user-handle">@offline</div>
+          <div class="user-info">
+            <div class="user-display" id="user-display-name">Not Logged In</div>
+            <div class="user-sub" id="user-handle">@offline</div>
           </div>
         </div>
       </div>
     </aside>
 
-    <!-- Main Viewport -->
-    <main class="main-viewport">
+    <!-- Center & Right Main Content Stage -->
+    <main class="main-stage">
       <!-- 1. OVERVIEW VIEW -->
       <section id="view-overview" class="view-panel active">
-        <div class="panel-header">
+        <div class="stage-header">
           <div>
-            <h2 class="panel-title">System Overview</h2>
-            <p class="panel-desc">Real-time status of your zero-admin Mattermost automation gateway.</p>
+            <h1 class="stage-title">System Overview</h1>
+            <p class="stage-subtitle">Zero-admin personal account gateway connecting Mattermost to AI agents, CI/CD, and HTTP webhooks.</p>
           </div>
-          <div class="panel-actions">
-            <button id="btn-quick-send" class="btn btn-primary btn-sm">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-              </svg>
-              <span>Compose Message</span>
+          <div class="stage-actions">
+            <button class="btn btn-primary btn-sm" onclick="switchTab('channels')">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+              <span>Open Live Chat</span>
             </button>
           </div>
         </div>
 
-        <!-- HUD Metrics Grid (Linear-style high-density cards) -->
-        <div class="hud-grid">
-          <div class="hud-card">
-            <div class="hud-header">
-              <span class="hud-label">Account Identity</span>
-              <span class="hud-icon">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              </span>
+        <!-- Metrics Grid -->
+        <div class="metrics-row">
+          <div class="metric-box">
+            <div class="metric-meta">
+              <span class="metric-label">Account Identity</span>
+              <span class="metric-status-dot"></span>
             </div>
-            <div class="hud-value" id="metric-username">-</div>
-            <div class="hud-sub" id="metric-roles">Zero-Admin Browser Mode</div>
+            <div class="metric-value" id="metric-username">-</div>
+            <div class="metric-footer" id="metric-roles">Zero-Admin Browser Engine</div>
           </div>
 
-          <div class="hud-card">
-            <div class="hud-header">
-              <span class="hud-label">Channels Mapped</span>
-              <span class="hud-icon">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>
-              </span>
+          <div class="metric-box">
+            <div class="metric-meta">
+              <span class="metric-label">Channel Mappings</span>
+              <span class="metric-chip" id="metric-channels-enabled">0 active</span>
             </div>
-            <div class="hud-value" id="metric-channels-count">0</div>
-            <div class="hud-sub" id="metric-channels-enabled">0 channels enabled</div>
+            <div class="metric-value" id="metric-channels-count">0</div>
+            <div class="metric-footer">Configured in channels.yml</div>
           </div>
 
-          <div class="hud-card">
-            <div class="hud-header">
-              <span class="hud-label">Scheduled Cron</span>
-              <span class="hud-icon">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-              </span>
+          <div class="metric-box">
+            <div class="metric-meta">
+              <span class="metric-label">Scheduled Cron</span>
+              <span class="metric-chip" id="metric-cron-count">0 jobs</span>
             </div>
-            <div class="hud-value" id="metric-cron-count">0</div>
-            <div class="hud-sub" id="metric-cron-next">Next run: None</div>
+            <div class="metric-value" id="metric-cron-next">Next: None</div>
+            <div class="metric-footer">Automated Reminders</div>
           </div>
 
-          <div class="hud-card">
-            <div class="hud-header">
-              <span class="hud-label">Automation Engine</span>
-              <span class="hud-icon">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
-              </span>
+          <div class="metric-box">
+            <div class="metric-meta">
+              <span class="metric-label">Engine & Target</span>
+              <span class="metric-chip">Playwright</span>
             </div>
-            <div class="hud-value" id="metric-provider">Playwright</div>
-            <div class="hud-sub" id="metric-server-url">https://mattermost...</div>
+            <div class="metric-value truncate" id="metric-server-url">https://...</div>
+            <div class="metric-footer">Zero PAT Permission Needed</div>
           </div>
         </div>
 
-        <div class="grid-two-col">
-          <!-- Quick REST API Reference -->
-          <div class="card">
-            <div class="card-header-row">
+        <!-- Two Column Interactive Section -->
+        <div class="split-row">
+          <!-- Quick Integration Guide -->
+          <div class="panel-card">
+            <div class="card-title-bar">
               <div>
-                <h3 class="card-title">HTTP REST API Gateway</h3>
-                <p class="card-desc">Send automated messages from any service via simple JSON HTTP POST:</p>
+                <h3 class="card-heading">HTTP REST Dispatcher</h3>
+                <p class="card-subheading">Integrate directly with any webhook or script in seconds:</p>
               </div>
-              <a href="#api" class="link-subtle" onclick="switchTab('api')">Open Playground →</a>
+              <button class="btn btn-sm btn-ghost link-accent" onclick="selectEndpoint('send_message')">Full Playground →</button>
             </div>
-            <div class="code-terminal">
-              <div class="code-terminal-bar">
-                <span class="code-terminal-title">cURL Request</span>
-                <button class="btn-copy-code" onclick="copySnippet('quick-curl')">Copy</button>
+
+            <div class="terminal-container">
+              <div class="terminal-header">
+                <span class="terminal-label">cURL Example</span>
+                <button class="btn-copy-sm" onclick="copySnippet('overview-curl-snippet')">Copy</button>
               </div>
-              <pre class="code-terminal-body"><code id="quick-curl">curl -X POST http://localhost:3000/api/messages/send \
+              <pre class="terminal-body"><code id="overview-curl-snippet">curl -X POST http://localhost:3000/api/messages/send \
   -H "Content-Type: application/json" \
   -d '{
     "channel": "town-square",
@@ -213,130 +223,115 @@
             </div>
           </div>
 
-          <!-- Quick Composer Form -->
-          <div class="card">
-            <div class="card-header-row">
+          <!-- Quick Test Message Composer -->
+          <div class="panel-card">
+            <div class="card-title-bar">
               <div>
-                <h3 class="card-title">Quick Message Dispatch</h3>
-                <p class="card-desc">Dispatch a test message through your active Mattermost session:</p>
+                <h3 class="card-heading">Quick Message Dispatch</h3>
+                <p class="card-subheading">Send a test post immediately through your active session:</p>
               </div>
             </div>
-            <form id="form-quick-send" class="compact-form">
-              <div class="form-field">
-                <label class="field-label">Target Channel</label>
-                <select id="quick-send-channel" class="field-input" required></select>
-              </div>
 
-              <div class="form-field">
-                <label class="field-label">Message Content</label>
-                <textarea id="quick-send-message" class="field-input field-textarea" rows="3" placeholder="Type a message or markdown formatted text..." required></textarea>
-              </div>
-
+            <form id="form-quick-send" class="workbench-form">
               <div class="form-row">
-                <div class="form-field flex-1">
-                  <label class="field-label">Attribution Tag (from)</label>
-                  <input type="text" id="quick-send-from" class="field-input" value="Google Antigravity" placeholder="e.g. AI Agent">
+                <div class="form-col flex-1">
+                  <label class="input-label">Target Channel</label>
+                  <select id="quick-send-channel" class="custom-select" required></select>
                 </div>
-                <div class="form-field">
-                  <button type="submit" class="btn btn-primary" style="margin-top:22px;">Send Message</button>
+                <div class="form-col flex-1">
+                  <label class="input-label">Attribution Tag (from)</label>
+                  <input type="text" id="quick-send-from" class="custom-input" value="Google Antigravity" placeholder="e.g. Bot, CI">
                 </div>
               </div>
+
+              <div class="form-col">
+                <label class="input-label">Message (Markdown Supported)</label>
+                <textarea id="quick-send-message" class="custom-textarea" rows="3" placeholder="Type a message to dispatch..." required></textarea>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-sm w-full">Send Message Now</button>
             </form>
           </div>
         </div>
       </section>
 
-      <!-- 2. CHANNELS & CHAT VIEW -->
+      <!-- 2. CHANNELS & LIVE CHAT WORKBENCH -->
       <section id="view-channels" class="view-panel">
-        <div class="panel-header">
-          <div>
-            <h2 class="panel-title">Channels & Chat Explorer</h2>
-            <p class="panel-desc">Explore team channels, inspect live chat history, and reply directly in threads.</p>
-          </div>
-          <div class="panel-actions">
-            <button id="btn-sync-channels" class="btn btn-secondary btn-sm">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-              </svg>
-              <span>Sync Channels</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="chat-workspace-split">
-          <!-- Channel List Left Column -->
-          <div class="channel-nav-col card">
-            <div class="search-input-wrapper">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="search-svg">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input type="text" id="channel-search-input" class="field-input search-input" placeholder="Search channels...">
+        <div class="chat-workbench">
+          <!-- Left Channel Tree -->
+          <div class="chat-channels-pane">
+            <div class="pane-header">
+              <div class="search-box">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="channel-search-input" class="search-input" placeholder="Search channels...">
+              </div>
+              <button id="btn-sync-channels" class="btn btn-icon btn-ghost" title="Sync Channels from Mattermost">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              </button>
             </div>
-            <div id="channels-list" class="channel-tree-list">
+            <div id="channels-list" class="channel-tree-scroll">
               <div class="loading-state">Loading channels...</div>
             </div>
           </div>
 
-          <!-- Chat Stream & Composer Column -->
-          <div class="chat-stream-col card">
-            <!-- Channel Header Bar -->
-            <div class="chat-toolbar">
-              <div class="chat-title-group">
-                <h3 class="chat-active-channel" id="current-channel-name">#town-square</h3>
-                <span class="chat-active-desc" id="current-channel-desc">Town Square channel</span>
+          <!-- Main Chat Stream -->
+          <div class="chat-stream-pane">
+            <!-- Channel Header -->
+            <div class="chat-stream-header">
+              <div class="active-channel-info">
+                <h2 id="current-channel-name" class="active-channel-title">#town-square</h2>
+                <span id="current-channel-desc" class="active-channel-desc">Town Square channel</span>
               </div>
 
-              <div class="segmented-control">
-                <button id="btn-view-chat" class="seg-btn active">
+              <div class="chat-tab-toggle">
+                <button id="btn-view-chat" class="tab-toggle-btn active">
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                   <span>Chat Stream</span>
                 </button>
-                <button id="btn-view-threads" class="seg-btn">
+                <button id="btn-view-threads" class="tab-toggle-btn">
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
                   <span>Threads (:1, :2)</span>
                 </button>
               </div>
 
-              <div class="chat-toolbar-right">
-                <div class="search-input-wrapper chat-filter-wrapper">
-                  <input type="text" id="chat-search-input" class="field-input search-input" placeholder="Search in chat...">
+              <div class="chat-header-actions">
+                <div class="search-box filter-search-box">
+                  <input type="text" id="chat-search-input" class="search-input" placeholder="Search in chat...">
                 </div>
-                <button id="btn-refresh-chat" class="btn btn-ghost btn-icon" title="Refresh Messages">
+                <button id="btn-refresh-chat" class="btn btn-icon btn-ghost" title="Refresh Messages">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
                 </button>
               </div>
             </div>
 
-            <!-- Chat Message Bubbles Body -->
-            <div id="chat-messages-container" class="chat-messages-scroll-area">
+            <!-- Chat Stream Scroll View -->
+            <div id="chat-messages-container" class="chat-messages-view">
               <div class="loading-state">Loading messages...</div>
             </div>
 
-            <!-- Threads View Body -->
-            <div id="threads-container" class="threads-scroll-area" style="display:none;">
+            <!-- Threads View Scroll View -->
+            <div id="threads-container" class="threads-view" style="display:none;">
               <div class="loading-state">Loading active threads...</div>
             </div>
 
-            <!-- Interactive Chat Composer -->
-            <div class="chat-composer-section">
+            <!-- Chat Composer Dock -->
+            <div class="chat-composer-dock">
               <form id="form-chat-send">
-                <div id="thread-reply-indicator" class="reply-target-badge" style="display:none;">
-                  <div class="reply-target-info">
+                <div id="thread-reply-indicator" class="reply-banner" style="display:none;">
+                  <div class="reply-banner-text">
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
                     <span id="reply-indicator-text">Replying in thread</span>
                   </div>
-                  <button type="button" id="btn-cancel-thread-reply" class="btn-close-sm">×</button>
+                  <button type="button" id="btn-cancel-thread-reply" class="btn-banner-close">×</button>
                 </div>
 
-                <div class="composer-input-row">
+                <div class="composer-box">
                   <input type="hidden" id="chat-target-root-id" value="">
-                  <textarea id="chat-input-message" class="field-input composer-input" rows="2" placeholder="Send a message (Shift+Enter for new line)..." required></textarea>
-                  <div class="composer-controls">
-                    <input type="text" id="chat-input-from" class="field-input input-attribution" placeholder="from: tag" value="Google Antigravity">
-                    <button type="submit" class="btn btn-primary btn-sm btn-send-action">
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                  <textarea id="chat-input-message" class="composer-textarea" rows="2" placeholder="Send a message to this channel (Enter to send, Shift+Enter for new line)..." required></textarea>
+                  <div class="composer-actions-bar">
+                    <input type="text" id="chat-input-from" class="composer-from-input" placeholder="from: tag" value="Google Antigravity">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                       <span>Send</span>
                     </button>
                   </div>
@@ -349,12 +344,12 @@
 
       <!-- 3. CRON SCHEDULER VIEW -->
       <section id="view-cron" class="view-panel">
-        <div class="panel-header">
+        <div class="stage-header">
           <div>
-            <h2 class="panel-title">Cron Job Scheduler</h2>
-            <p class="panel-desc">Declarative scheduling engine for recurring reminders, standup prompts, and healthchecks.</p>
+            <h1 class="stage-title">Cron Job Scheduler</h1>
+            <p class="stage-subtitle">Declarative recurring schedules stored in <code>cron.yml</code> for automated reminders, standups, and healthchecks.</p>
           </div>
-          <div class="panel-actions">
+          <div class="stage-actions">
             <button id="btn-new-cron" class="btn btn-primary btn-sm">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               <span>New Cron Job</span>
@@ -366,101 +361,82 @@
           </div>
         </div>
 
-        <div class="card">
-          <div class="table-container">
-            <table class="hud-table">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Job Identifier</th>
-                  <th>Schedule Expression</th>
-                  <th>Target Channel</th>
-                  <th>Attribution</th>
-                  <th>Next Execution</th>
-                  <th>Last Run Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="cron-table-body">
-                <tr><td colspan="8" class="table-empty">Loading scheduled jobs...</td></tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="panel-card-table">
+          <table class="workbench-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Job Identifier</th>
+                <th>Cron Schedule</th>
+                <th>Target Channel</th>
+                <th>Attribution</th>
+                <th>Next Execution</th>
+                <th>Last Run Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cron-table-body">
+              <tr><td colspan="8" class="table-empty">Loading scheduled jobs...</td></tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
-      <!-- 4. API PLAYGROUND VIEW (BAILEYS.WIKI-STYLE) -->
+      <!-- 4. API PLAYGROUND (BAILEYS.WIKI-STYLE) -->
       <section id="view-api" class="view-panel">
-        <div class="panel-header">
+        <div class="stage-header">
           <div>
-            <h2 class="panel-title">Interactive REST API Playground</h2>
-            <p class="panel-desc">Test endpoints live against your local instance and generate ready-to-copy code snippets.</p>
-          </div>
-          <div class="panel-actions">
-            <a href="/api/openapi.json" target="_blank" class="btn btn-secondary btn-sm">
-              <span>OpenAPI Specification (JSON)</span>
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            </a>
+            <div class="endpoint-title-row">
+              <span id="api-active-method" class="method-badge-lg method-post">POST</span>
+              <h1 id="api-active-route" class="stage-title">/api/messages/send</h1>
+            </div>
+            <p id="api-active-desc" class="stage-subtitle">Dispatch an automated message to any configured Mattermost channel.</p>
           </div>
         </div>
 
-        <div class="grid-two-col">
-          <!-- Request Builder Card -->
-          <div class="card">
-            <div class="card-header-row">
-              <h3 class="card-title">Endpoint & Parameters</h3>
+        <div class="api-split-workbench">
+          <!-- Request Builder Left -->
+          <div class="api-builder-pane panel-card">
+            <div class="card-title-bar">
+              <h3 class="card-heading">Request Parameters</h3>
             </div>
 
-            <div class="form-field">
-              <label class="field-label">Target Endpoint</label>
-              <select id="api-endpoint-select" class="field-input">
-                <option value="send_message">POST /api/messages/send (Send Message)</option>
-                <option value="reply_thread">POST /api/messages/reply (Reply in Thread)</option>
-                <option value="get_channels">GET /api/channels (List Channels)</option>
-                <option value="get_threads">GET /api/threads (List Active Threads)</option>
-                <option value="get_history">GET /api/messages/history (Read Channel Posts)</option>
-                <option value="get_cron">GET /api/cron (List Cron Jobs)</option>
-                <option value="run_cron">POST /api/cron/run (Trigger Cron Job)</option>
-                <option value="save_cron">POST /api/cron/save (Create/Update Cron Job)</option>
-                <option value="get_status">GET /api/status (Session & Auth Status)</option>
-                <option value="auto_login">POST /api/auth/login (1-Click Auto Login)</option>
-              </select>
-            </div>
-
-            <div id="api-params-container" class="api-params-group">
+            <div id="api-params-container" class="api-params-stack">
               <!-- Dynamically populated parameters -->
             </div>
 
-            <button id="btn-api-execute" class="btn btn-primary w-full" style="margin-top: 18px;">
+            <button id="btn-api-execute" class="btn btn-primary w-full" style="margin-top:16px;">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
               <span>Execute Request</span>
             </button>
           </div>
 
-          <!-- Code Generator & Response Card -->
-          <div class="card">
-            <div class="code-terminal-header">
-              <div class="code-tab-bar">
-                <button class="code-tab-btn active" data-lang="curl">cURL</button>
-                <button class="code-tab-btn" data-lang="typescript">TypeScript</button>
-                <button class="code-tab-btn" data-lang="python">Python</button>
-                <button class="code-tab-btn" data-lang="go">Go</button>
-                <button class="code-tab-btn" data-lang="php">PHP</button>
+          <!-- Code Snippets & Response Inspector Right -->
+          <div class="api-code-pane panel-card">
+            <!-- Code Tab Bar -->
+            <div class="code-tab-header">
+              <div class="code-tab-list">
+                <button class="code-tab-item active" data-lang="curl">cURL</button>
+                <button class="code-tab-item" data-lang="typescript">TypeScript</button>
+                <button class="code-tab-item" data-lang="python">Python</button>
+                <button class="code-tab-item" data-lang="go">Go</button>
+                <button class="code-tab-item" data-lang="php">PHP</button>
               </div>
-              <button class="btn-copy-code" onclick="copyApiSnippet()">Copy Snippet</button>
+              <button class="btn-copy-sm" onclick="copyApiSnippet()">Copy Snippet</button>
             </div>
 
-            <div class="code-terminal code-terminal-main">
-              <pre class="code-terminal-body"><code id="api-code-snippet">// Code will be generated here</code></pre>
+            <div class="terminal-container terminal-code">
+              <pre class="terminal-body"><code id="api-code-snippet">// Code snippet will be generated here</code></pre>
             </div>
 
-            <div class="response-terminal-header">
-              <span class="response-title">Live Response Inspector</span>
-              <span id="api-response-status" class="status-pill status-idle">Status: Idle</span>
+            <!-- Live Response Inspector -->
+            <div class="response-header-bar">
+              <span class="response-label">Live Response</span>
+              <span id="api-response-status" class="status-chip status-idle">Status: Idle</span>
             </div>
 
-            <div class="code-terminal code-terminal-response">
-              <pre class="code-terminal-body"><code id="api-response-body">Execute request to inspect live HTTP response payload...</code></pre>
+            <div class="terminal-container terminal-response">
+              <pre class="terminal-body"><code id="api-response-body">Click "Execute Request" to inspect live response payload...</code></pre>
             </div>
           </div>
         </div>
@@ -468,19 +444,19 @@
 
       <!-- 5. LIVE ACTIVITY LOGS VIEW -->
       <section id="view-logs" class="view-panel">
-        <div class="panel-header">
+        <div class="stage-header">
           <div>
-            <h2 class="panel-title">Real-Time Event Stream</h2>
-            <p class="panel-desc">Server-Sent Events (SSE) broadcasting live message dispatch, auth state, and cron executions.</p>
+            <h1 class="stage-title">Server-Sent Events Stream</h1>
+            <p class="stage-subtitle">Real-time broadcast events from <code>/api/events</code> for message dispatches, authentication status, and cron triggers.</p>
           </div>
-          <div class="panel-actions">
-            <button id="btn-clear-logs" class="btn btn-secondary btn-sm">Clear Logs</button>
+          <div class="stage-actions">
+            <button id="btn-clear-logs" class="btn btn-secondary btn-sm">Clear Stream</button>
           </div>
         </div>
 
-        <div class="card">
-          <div id="logs-console" class="log-stream-console">
-            <div class="log-line log-system"><span class="log-ts">[00:00:00]</span> <span class="log-badge">SYS</span> Connected to Server-Sent Events stream (/api/events)</div>
+        <div class="panel-card-log">
+          <div id="logs-console" class="terminal-stream-body">
+            <div class="log-entry log-sys"><span class="log-time">[00:00:00]</span> <span class="log-tag">SYS</span> Connected to Server-Sent Events stream.</div>
           </div>
         </div>
       </section>
@@ -489,23 +465,23 @@
 
   <!-- Modal: Configure / Add Cron Job -->
   <div id="modal-cron" class="modal-backdrop" style="display:none;">
-    <div class="modal-dialog">
-      <div class="modal-dialog-header">
-        <h3 id="modal-cron-title" class="modal-dialog-title">Configure Cron Job</h3>
-        <button id="btn-close-modal-cron" class="btn-close-modal">×</button>
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-cron-title" class="modal-title">Configure Cron Job</h3>
+        <button id="btn-close-modal-cron" class="btn-modal-close">×</button>
       </div>
 
-      <form id="form-modal-cron" class="modal-dialog-form">
-        <div class="form-field">
-          <label class="field-label">Job Identifier Name *</label>
-          <input type="text" id="cron-modal-name" class="field-input" placeholder="e.g. daily-standup, sprint-demo" required>
+      <form id="form-modal-cron" class="modal-form">
+        <div class="form-col">
+          <label class="input-label">Job Identifier Name *</label>
+          <input type="text" id="cron-modal-name" class="custom-input" placeholder="e.g. daily-standup, sprint-demo" required>
         </div>
 
         <div class="form-row">
-          <div class="form-field flex-1">
-            <label class="field-label">Schedule Preset</label>
-            <select id="cron-modal-preset" class="field-input">
-              <option value="custom">-- Custom Cron Expression --</option>
+          <div class="form-col flex-1">
+            <label class="input-label">Schedule Preset</label>
+            <select id="cron-modal-preset" class="custom-select">
+              <option value="custom">-- Custom Expression --</option>
               <option value="0 9 * * 1-5" selected>Every Mon-Fri at 09:00 (0 9 * * 1-5)</option>
               <option value="0 9 * * *">Every Day at 09:00 (0 9 * * *)</option>
               <option value="0 16 * * 5">Every Friday at 16:00 (0 16 * * 5)</option>
@@ -513,20 +489,20 @@
               <option value="*/15 * * * *">Every 15 Minutes (*/15 * * * *)</option>
             </select>
           </div>
-          <div class="form-field flex-1">
-            <label class="field-label">Cron Expression *</label>
-            <input type="text" id="cron-modal-schedule" class="field-input" value="0 9 * * 1-5" required>
+          <div class="form-col flex-1">
+            <label class="input-label">Cron Expression *</label>
+            <input type="text" id="cron-modal-schedule" class="custom-input" value="0 9 * * 1-5" required>
           </div>
         </div>
 
         <div class="form-row">
-          <div class="form-field flex-1">
-            <label class="field-label">Target Channel *</label>
-            <select id="cron-modal-channel" class="field-input" required></select>
+          <div class="form-col flex-1">
+            <label class="input-label">Target Channel *</label>
+            <select id="cron-modal-channel" class="custom-select" required></select>
           </div>
-          <div class="form-field flex-1">
-            <label class="field-label">Timezone</label>
-            <select id="cron-modal-timezone" class="field-input">
+          <div class="form-col flex-1">
+            <label class="input-label">Timezone</label>
+            <select id="cron-modal-timezone" class="custom-select">
               <option value="Asia/Jakarta" selected>Asia/Jakarta (WIB)</option>
               <option value="UTC">UTC</option>
               <option value="Asia/Singapore">Asia/Singapore</option>
@@ -536,38 +512,38 @@
           </div>
         </div>
 
-        <div class="form-field">
-          <label class="field-label">Message Content (Markdown Supported) *</label>
-          <textarea id="cron-modal-message" class="field-input field-textarea" rows="3" placeholder="Automated message text to send..." required></textarea>
+        <div class="form-col">
+          <label class="input-label">Message Body (Markdown Supported) *</label>
+          <textarea id="cron-modal-message" class="custom-textarea" rows="3" placeholder="Message content to dispatch..." required></textarea>
         </div>
 
         <div class="form-row">
-          <div class="form-field flex-1">
-            <label class="field-label">Attribution Tag (from)</label>
-            <input type="text" id="cron-modal-from" class="field-input" value="Daily Reminder" placeholder="e.g. Bot, Standup Assistant">
+          <div class="form-col flex-1">
+            <label class="input-label">Attribution Tag (from)</label>
+            <input type="text" id="cron-modal-from" class="custom-input" value="Daily Reminder" placeholder="e.g. Daily Reminder">
           </div>
-          <div class="form-field flex-1">
-            <label class="field-label">Description</label>
-            <input type="text" id="cron-modal-desc" class="field-input" placeholder="Optional description">
+          <div class="form-col flex-1">
+            <label class="input-label">Description</label>
+            <input type="text" id="cron-modal-desc" class="custom-input" placeholder="Optional description">
           </div>
         </div>
 
-        <div class="form-field checkbox-field">
-          <label class="custom-checkbox-label">
+        <div class="form-col checkbox-row">
+          <label class="checkbox-label">
             <input type="checkbox" id="cron-modal-enabled" checked>
             <span>Enable and start this schedule immediately</span>
           </label>
         </div>
 
-        <div class="modal-dialog-actions">
-          <button type="button" id="btn-cancel-modal-cron" class="btn btn-secondary">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Cron Job</button>
+        <div class="modal-actions">
+          <button type="button" id="btn-cancel-modal-cron" class="btn btn-secondary btn-sm">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Save Cron Job</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Toast Notification Container -->
+  <!-- Toast Notification Stack -->
   <div id="toast-container" class="toast-stack"></div>
 
   <script src="/app.js"></script>
