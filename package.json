@@ -1,0 +1,40 @@
+{
+  "name": "mattermost-agent",
+  "version": "1.0.0",
+  "description": "Modular personal account automation service and CLI for Mattermost",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "mattermost": "./dist/cli/index.js"
+  },
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "cli": "tsx src/cli/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mattermost",
+    "automation",
+    "personal-account",
+    "playwright",
+    "api"
+  ],
+  "author": "Ega Gofur",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "playwright": "^1.50.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.19",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.6"
+  }
+}

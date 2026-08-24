@@ -1,0 +1,38 @@
+import { Channel, GetChannelInput, GetMessagesInput, Post, ReplyToMessageInput, SendMessageInput, SendMessageResult, User } from '../entities';
+
+export interface MattermostProvider {
+  /**
+   * Returns details of the currently authenticated user.
+   */
+  getMe(): Promise<User>;
+
+  /**
+   * Retrieves channel metadata by ID or name and team.
+   */
+  getChannel(input: GetChannelInput): Promise<Channel>;
+
+  /**
+   * Lists channels accessible to the user (optionally filtered by team).
+   */
+  listChannels(teamId?: string): Promise<Channel[]>;
+
+  /**
+   * Posts a new message to a channel.
+   */
+  sendMessage(input: SendMessageInput): Promise<SendMessageResult>;
+
+  /**
+   * Replies to an existing message thread.
+   */
+  replyToMessage(input: ReplyToMessageInput): Promise<SendMessageResult>;
+
+  /**
+   * Reads recent messages from a channel.
+   */
+  getMessages(input: GetMessagesInput): Promise<Post[]>;
+
+  /**
+   * Optional cleanup hook for releasing resources (e.g. browser context).
+   */
+  close?(): Promise<void>;
+}
