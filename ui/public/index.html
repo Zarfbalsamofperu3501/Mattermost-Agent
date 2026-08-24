@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mattermost Agent — Web Dashboard & API Gateway</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Top App Navigation -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>Mattermost Agent</h1>
+        <span class="version-badge">v1.2.0</span>
+      </div>
+    </div>
+
+    <div class="header-status">
+      <div id="connection-badge" class="badge badge-disconnected">
+        <span class="pulse-dot"></span>
+        <span id="connection-text">Checking Session...</span>
+      </div>
+
+      <button id="btn-auto-login" class="btn btn-primary btn-sm">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>
+        </svg>
+        <span>1-Click Auto Login</span>
+      </button>
+
+      <button id="btn-theme-toggle" class="btn btn-icon" title="Toggle Theme">
+        <svg id="theme-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="overview">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>Overview</span>
+        </button>
+        <button class="nav-item" data-tab="channels">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>
+          <span>Channels & Threads</span>
+        </button>
+        <button class="nav-item" data-tab="cron">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>Cron Scheduler</span>
+        </button>
+        <button class="nav-item" data-tab="api">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+          <span>API Playground</span>
+          <span class="nav-badge">REST</span>
+        </button>
+        <button class="nav-item" data-tab="logs">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          <span>Live Activity</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="profile-card" id="user-profile-card">
+          <div class="profile-avatar" id="user-avatar">?</div>
+          <div class="profile-info">
+            <div class="profile-name" id="user-display-name">Not Logged In</div>
+            <div class="profile-handle" id="user-handle">@offline</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- 1. OVERVIEW TAB -->
+      <section id="view-overview" class="view-panel active">
+        <div class="view-header">
+          <div>
+            <h2>Dashboard Overview</h2>
+            <p class="text-muted">Personal account automation & integration gateway status.</p>
+          </div>
+          <div class="view-actions">
+            <button id="btn-quick-send" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              <span>Compose Message</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-icon metric-purple">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+            <div class="metric-content">
+              <div class="metric-label">Active Identity</div>
+              <div class="metric-value" id="metric-username">-</div>
+              <div class="metric-sub" id="metric-roles">Zero-Admin Mode</div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon metric-blue">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>
+            </div>
+            <div class="metric-content">
+              <div class="metric-label">Mapped Channels</div>
+              <div class="metric-value" id="metric-channels-count">0</div>
+              <div class="metric-sub" id="metric-channels-enabled">0 enabled</div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon metric-green">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+            <div class="metric-content">
+              <div class="metric-label">Active Cron Jobs</div>
+              <div class="metric-value" id="metric-cron-count">0</div>
+              <div class="metric-sub" id="metric-cron-next">Next run: None</div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon metric-amber">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+            </div>
+            <div class="metric-content">
+              <div class="metric-label">Provider Engine</div>
+              <div class="metric-value" id="metric-provider">Playwright</div>
+              <div class="metric-sub" id="metric-server-url">https://mattermost...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <!-- Quick Integration Guide -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h3>⚡ Quick API Integration</h3>
+              <a href="#api" class="link-btn" onclick="switchTab('api')">View All Docs →</a>
+            </div>
+            <p class="text-sm text-muted">Send a message directly via cURL or any HTTP client:</p>
+            <div class="code-box">
+              <button class="btn-copy" onclick="copySnippet('quick-curl')">Copy</button>
+              <pre id="quick-curl"><code>curl -X POST http://localhost:3000/api/messages/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel": "town-square",
+    "message": "Hello from REST API!",
+    "from": "API Agent"
+  }'</code></pre>
+            </div>
+          </div>
+
+          <!-- Quick Sender Box -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h3>💬 Quick Message Sender</h3>
+              <span class="badge badge-success">Live Playwright/API</span>
+            </div>
+            <form id="form-quick-send" class="composer-form">
+              <div class="form-group">
+                <label>Target Channel</label>
+                <select id="quick-send-channel" class="form-control" required>
+                  <option value="town-square">#town-square (Town Square)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Message (Markdown Supported)</label>
+                <textarea id="quick-send-message" class="form-control" rows="3" placeholder="Type a message..." required></textarea>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <label>Sender Attribution (from)</label>
+                  <input type="text" id="quick-send-from" class="form-control" placeholder="e.g. Google Antigravity, CI/CD" value="Google Antigravity">
+                </div>
+                <div class="form-group form-actions-inline">
+                  <button type="submit" class="btn btn-primary w-full">Send Message</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. CHANNELS & THREADS TAB -->
+      <section id="view-channels" class="view-panel">
+        <div class="view-header">
+          <div>
+            <h2>Channels & Thread Explorer</h2>
+            <p class="text-muted">Inspect channels, discover active threads, and reply using smart shortcuts.</p>
+          </div>
+          <div class="view-actions">
+            <button id="btn-sync-channels" class="btn btn-secondary">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              <span>Sync Channels</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="channels-layout">
+          <!-- Channel List Column -->
+          <div class="channel-sidebar glass-card">
+            <div class="search-box">
+              <input type="text" id="channel-search-input" class="form-control" placeholder="Filter channels...">
+            </div>
+            <div id="channels-list" class="channel-items-container">
+              <div class="loading-state">Loading channels...</div>
+            </div>
+          </div>
+
+          <!-- Thread & Messages Column -->
+          <div class="thread-viewer glass-card">
+            <div class="thread-header">
+              <div class="thread-title">
+                <h3 id="current-channel-name">#town-square</h3>
+                <span id="current-channel-desc" class="text-muted text-xs">Town Square channel</span>
+              </div>
+              <div class="thread-actions">
+                <button id="btn-refresh-threads" class="btn btn-sm btn-secondary">Refresh Threads</button>
+              </div>
+            </div>
+
+            <div id="threads-container" class="threads-list">
+              <div class="empty-state">Select a channel to inspect active threads.</div>
+            </div>
+
+            <!-- Quick Reply Form -->
+            <div class="thread-reply-box">
+              <form id="form-thread-reply" class="reply-form">
+                <div class="reply-input-row">
+                  <input type="text" id="reply-root-id" class="form-control form-control-sm form-w-100" placeholder=":1 or ID" value=":1" required>
+                  <input type="text" id="reply-message" class="form-control" placeholder="Reply to thread..." required>
+                  <input type="text" id="reply-from" class="form-control form-control-sm form-w-140" placeholder="from: AI" value="AI Agent">
+                  <button type="submit" class="btn btn-primary">Reply</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. CRON SCHEDULER TAB -->
+      <section id="view-cron" class="view-panel">
+        <div class="view-header">
+          <div>
+            <h2>Cron Job Scheduler</h2>
+            <p class="text-muted">Declarative automated recurring reminders and standup notifications.</p>
+          </div>
+          <div class="view-actions">
+            <button id="btn-refresh-cron" class="btn btn-secondary">Refresh</button>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Job Name</th>
+                  <th>Schedule</th>
+                  <th>Channel</th>
+                  <th>Attribution</th>
+                  <th>Next Run</th>
+                  <th>Last Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="cron-table-body">
+                <tr><td colspan="8" class="text-center">Loading cron jobs...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. API PLAYGROUND (BAILEYS.WIKI-STYLE) -->
+      <section id="view-api" class="view-panel">
+        <div class="view-header">
+          <div>
+            <h2>Interactive REST API Playground</h2>
+            <p class="text-muted">Test endpoints live and generate multi-language code snippets (cURL, TypeScript, Python, Go, PHP).</p>
+          </div>
+          <div class="view-actions">
+            <a href="/api/openapi.json" target="_blank" class="btn btn-secondary btn-sm">OpenAPI Spec (JSON)</a>
+          </div>
+        </div>
+
+        <div class="api-playground-grid">
+          <!-- Endpoint Selector & Request Form -->
+          <div class="glass-card">
+            <div class="form-group">
+              <label class="font-semibold">Select Endpoint</label>
+              <select id="api-endpoint-select" class="form-control">
+                <option value="send_message">POST /api/messages/send (Send Message)</option>
+                <option value="reply_thread">POST /api/messages/reply (Reply to Thread)</option>
+                <option value="get_channels">GET /api/channels (List Channels)</option>
+                <option value="get_threads">GET /api/threads (List Active Threads)</option>
+                <option value="get_history">GET /api/messages/history (Read Channel Posts)</option>
+                <option value="get_cron">GET /api/cron (List Cron Jobs)</option>
+                <option value="run_cron">POST /api/cron/run (Trigger Cron Job)</option>
+                <option value="get_status">GET /api/status (Session & Auth Status)</option>
+                <option value="auto_login">POST /api/auth/login (1-Click Auto Login)</option>
+              </select>
+            </div>
+
+            <div id="api-params-container">
+              <!-- Dynamically populated parameters -->
+            </div>
+
+            <button id="btn-api-execute" class="btn btn-primary w-full mt-4">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>Execute Request</span>
+            </button>
+          </div>
+
+          <!-- Code Generator & Live Response Viewer -->
+          <div class="glass-card">
+            <div class="tabs-header">
+              <div class="tab-buttons">
+                <button class="code-tab active" data-lang="curl">cURL</button>
+                <button class="code-tab" data-lang="typescript">TypeScript</button>
+                <button class="code-tab" data-lang="python">Python</button>
+                <button class="code-tab" data-lang="go">Go</button>
+                <button class="code-tab" data-lang="php">PHP</button>
+              </div>
+              <button class="btn-copy" onclick="copyApiSnippet()">Copy</button>
+            </div>
+
+            <div class="code-box code-box-tall">
+              <pre><code id="api-code-snippet">// Code snippet will be generated here</code></pre>
+            </div>
+
+            <div class="response-header mt-4">
+              <h4>Live Response</h4>
+              <span id="api-response-status" class="badge badge-muted">Status: Idle</span>
+            </div>
+            <div class="code-box code-box-response">
+              <pre><code id="api-response-body">Click "Execute Request" to test endpoint live...</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. LIVE ACTIVITY LOGS TAB -->
+      <section id="view-logs" class="view-panel">
+        <div class="view-header">
+          <div>
+            <h2>Live Activity & Event Stream (SSE)</h2>
+            <p class="text-muted">Real-time broadcast events of messages, cron triggers, and logins.</p>
+          </div>
+          <div class="view-actions">
+            <button id="btn-clear-logs" class="btn btn-secondary btn-sm">Clear Logs</button>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <div id="logs-console" class="logs-container">
+            <div class="log-entry log-info">[System] Connected to Server-Sent Events stream (/api/events)...</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

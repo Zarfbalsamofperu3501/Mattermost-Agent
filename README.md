@@ -17,6 +17,7 @@
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-yaml-channel-mapping">Channel Mapping</a> •
   <a href="#-cli-reference">CLI Reference</a> •
+  <a href="#-web-dashboard--api-gateway">Web UI & API Gateway</a> •
   <a href="#-scheduled-cron-jobs">Cron Jobs</a> •
   <a href="#-model-context-protocol-mcp">MCP Server (AI Agents)</a> •
   <a href="#-typescript-sdk">TypeScript SDK</a> •
@@ -352,6 +353,57 @@ JSON Response:
     "createdAt": "2026-08-24T10:45:00.000Z"
   }
 }
+```
+
+---
+
+## 🌐 Web Dashboard & REST API Gateway (Baileys.wiki-Style)
+
+`mattermost-agent` includes a modern, interactive **Web Dashboard** and **REST API Gateway** inspired by [baileys.wiki](https://baileys.wiki/).
+
+```bash
+# Launch the Web Dashboard & API Gateway on port 3000:
+npm run ui
+
+# Or via CLI:
+mattermost ui --port 3000
+```
+Open **`http://localhost:3000`** in your browser to access the dashboard!
+
+### 🌟 Dashboard Features
+1. **1-Click Auto Login**: Trigger interactive Playwright browser login directly from the web UI with live progress indicators.
+2. **Channel & Thread Explorer**: Visual thread tree viewer with `:1`, `:2` shortcuts and quick reply box.
+3. **Cron Job Manager**: Visual schedule overview with next run countdowns, 1-click manual execution, and enable/disable switches.
+4. **Interactive API Playground**: Live sandbox with multi-language code snippets (**cURL**, **TypeScript / Node.js**, **Python**, **Go**, **PHP**) and real-time response viewer.
+5. **Live Activity Console**: Real-time Server-Sent Events (SSE) stream for message events, auth state, and cron executions.
+
+### 📡 Ready-to-Use REST API Endpoints
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/status` | Get session connection & authenticated user state |
+| `POST` | `/api/auth/login` | Trigger 1-Click interactive browser login |
+| `GET` | `/api/channels` | List configured channels, aliases, and enabled flags |
+| `POST` | `/api/channels/sync` | Re-sync accessible channels across all teams |
+| `POST` | `/api/channels/toggle` | Enable or disable a channel dynamically |
+| `GET` | `/api/threads?channel=:c` | Get active channel threads with `:1` shortcuts |
+| `POST` | `/api/messages/send` | Send a top-level message with attribution (`from`) |
+| `POST` | `/api/messages/reply` | Reply to thread via ID, `:1` shortcut, or query |
+| `GET` | `/api/messages/history?channel=:c` | Read recent messages from a channel |
+| `GET` | `/api/cron` | List configured recurring cron jobs |
+| `POST` | `/api/cron/run` | Manually trigger a cron job execution |
+| `POST` | `/api/cron/toggle` | Enable or disable a cron job |
+| `GET` | `/api/openapi.json` | Download OpenAPI 3.0 specification |
+
+#### Example: Send Message via cURL
+```bash
+curl -X POST http://localhost:3000/api/messages/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel": "town-square",
+    "message": "Hello from Mattermost Agent REST API!",
+    "from": "Webhook Agent"
+  }'
 ```
 
 ---

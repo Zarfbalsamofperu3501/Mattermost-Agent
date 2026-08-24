@@ -686,4 +686,39 @@ cronCmd
     }
   });
 
+// ui / server / web dashboard command
+program
+  .command('ui')
+  .alias('server')
+  .alias('web')
+  .description('Start the modern Web Dashboard and REST API Gateway (Baileys.wiki-style)')
+  .option('-p, --port <port>', 'HTTP server port', '3000')
+  .option('-h, --host <host>', 'HTTP server host', '0.0.0.0')
+  .action(async (opts) => {
+    try {
+      const { startMattermostHttpServer } = await import('../ui/server');
+      const port = Number(opts.port) || 3000;
+      const host = opts.host || '0.0.0.0';
+
+      console.log('\n🚀 Launching Mattermost Agent Web UI & API Gateway...');
+      const server = await startMattermostHttpServer({ port, host });
+
+      console.log(`\n🌐 Web Dashboard:  http://localhost:${port}`);
+      console.log(`📡 REST API Docs:   http://localhost:${port}#api`);
+      console.log(`📋 OpenAPI Spec:    http://localhost:${port}/api/openapi.json`);
+      console.log('\n💡 Press Ctrl+C to stop the server.\n');
+
+      const shutdown = async () => {
+        console.log('\nStopping Mattermost Web UI...');
+        await server.stop();
+        process.exit(0);
+      };
+
+      process.on('SIGINT', shutdown);
+      process.on('SIGTERM', shutdown);
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
 program.parse(process.argv);
