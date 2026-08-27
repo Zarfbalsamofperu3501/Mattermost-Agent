@@ -1,5 +1,7 @@
 import {
   Channel,
+  EditMessageInput,
+  EditMessageResult,
   GetChannelInput,
   GetMessagesInput,
   Post,
@@ -143,6 +145,18 @@ export class MattermostApiProvider implements MattermostProvider {
       message: rawPost.message,
       rootId: rawPost.root_id || undefined,
       createdAt: new Date(rawPost.create_at),
+    };
+  }
+
+  public async editMessage(input: EditMessageInput): Promise<EditMessageResult> {
+    this.logger.debug(`Editing message '${input.postId}' via API...`);
+    const rawPost = await this.client.patchPost(input.postId, input.message);
+    return {
+      id: rawPost.id,
+      channelId: rawPost.channel_id,
+      userId: rawPost.user_id,
+      message: rawPost.message,
+      updatedAt: new Date(rawPost.update_at || Date.now()),
     };
   }
 

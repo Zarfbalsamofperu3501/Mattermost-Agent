@@ -139,4 +139,42 @@ describe('MattermostApiProvider & ApiClient', () => {
       MattermostChannelNotFoundError
     );
   });
+
+  it('edits message via PUT /api/v4/posts/:id/patch', async () => {
+    global.fetch = vi.fn().mockImplementation(async (url, init) => {
+      expect(url).toContain('/api/v4/posts/post_to_edit_123/patch');
+      expect(init.method).toBe('PUT');
+      const body = JSON.parse(init.body);
+      expect(body.id).toBe('post_to_edit_123');
+      expect(body.message).toBe('Revised content');
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 'post_to_edit_123',
+          channel_id: 'channel_abc',
+          user_id: 'user_123',
+          message: body.message,
+          update_at: 1700000005000,
+        }),
+      };
+    });
+
+    const client = new MattermostApiClient({
+      baseUrl: 'https://mattermost.example.com',
+      token: 'fake-token-12345',
+    });
+    const provider = new MattermostApiProvider(client);
+
+    const result = await provider.editMessage({
+      postId: 'post_to_edit_123',
+      message: 'Revised content',
+    });
+
+    expect(result.id).toBe('post_to_edit_123');
+    expect(result.message).toBe('Revised content');
+    expect(result.channelId).toBe('channel_abc');
+    expect(result.updatedAt).toBeInstanceOf(Date);
+  });
 });

@@ -1,4 +1,4 @@
-import { Channel, Post, SendMessageResult, User } from '../../../domain/mattermost/entities';
+import { Channel, EditMessageResult, Post, SendMessageResult, User } from '../../../domain/mattermost/entities';
 import {
   MattermostAuthenticationError,
   MattermostError,
@@ -13,6 +13,7 @@ import { formatMessageWithAttribution } from '../../../infrastructure/mattermost
 import { ThreadService } from '../../../infrastructure/mattermost/services/thread-service';
 import {
   ActionResult,
+  EditMessageAction,
   GetChannelAction,
   MattermostAction,
   MattermostActionSchema,
@@ -90,6 +91,9 @@ export class ActionExecutor {
           break;
         case 'reply_to_message':
           resultData = await this.handleReplyToMessage(action);
+          break;
+        case 'edit_message':
+          resultData = await this.handleEditMessage(action);
           break;
         case 'read_channel':
           resultData = await this.handleReadChannel(action);
@@ -268,5 +272,29 @@ export class ActionExecutor {
       channel: resolvedChannel,
       messages,
     };
+  }
+
+  public async handleEditMessage(action: EditMessageAction): Promise<EditMessageResult> {
+    // 1. Extract 26-char post ID from permalink or direct ID
+    const targetPostId = ThreadService.extractPostIdFromPermalink(action.postId);
+
+    if (!targetPostId) {
+      throw new MattermostValidationError(
+        `Invalid post ID or permalink '${action.postId}'. Expected a 26-character post ID or valid Mattermost permalink URL.`
+      );
+    }
+
+    // 2. Format message with attribution footer if requested
+    const formattedMessage = formatMessageWithAttribution(action.message, action.from || this.defaultFrom);
+
+    this.logger.event('mattermost.message.edit', {
+      postId: targetPostId,
+    });
+
+    return this.provider.editMessage({
+      postId: targetPostId,
+      message: formattedMessage,
+      from: action.from,
+    });
   }
 }

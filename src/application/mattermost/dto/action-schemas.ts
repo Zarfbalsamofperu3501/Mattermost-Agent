@@ -38,9 +38,17 @@ export const WhoamiActionSchema = z.object({
   action: z.literal('whoami'),
 });
 
+export const EditMessageActionSchema = z.object({
+  action: z.literal('edit_message'),
+  postId: z.string().min(1, 'Post ID or permalink is required.'),
+  message: z.string().min(1, 'Message cannot be empty.'),
+  from: z.string().optional(),
+});
+
 export const MattermostActionSchema = z.discriminatedUnion('action', [
   SendMessageActionSchema,
   ReplyToMessageActionSchema,
+  EditMessageActionSchema,
   ReadChannelActionSchema,
   GetChannelActionSchema,
   WhoamiActionSchema,
@@ -48,6 +56,7 @@ export const MattermostActionSchema = z.discriminatedUnion('action', [
 
 export type SendMessageAction = z.infer<typeof SendMessageActionSchema>;
 export type ReplyToMessageAction = z.infer<typeof ReplyToMessageActionSchema>;
+export type EditMessageAction = z.infer<typeof EditMessageActionSchema>;
 export type ReadChannelAction = z.infer<typeof ReadChannelActionSchema>;
 export type GetChannelAction = z.infer<typeof GetChannelActionSchema>;
 export type WhoamiAction = z.infer<typeof WhoamiActionSchema>;

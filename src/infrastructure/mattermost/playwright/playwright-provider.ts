@@ -1,5 +1,7 @@
 import {
   Channel,
+  EditMessageInput,
+  EditMessageResult,
   GetChannelInput,
   GetMessagesInput,
   Post,
@@ -326,6 +328,110 @@ export class MattermostPlaywrightProvider implements MattermostProvider {
       rootId: input.rootId,
       idempotencyKey: input.idempotencyKey,
     });
+  }
+
+  public async editMessage(input: EditMessageInput): Promise<EditMessageResult> {
+    const user = await this.ensureAuthenticated();
+    const page = await this.webClient.getPage();
+
+    // 1. Primary Strategy: In-browser API patch (Fast & direct)
+    try {
+      this.logger.debug(`Playwright: Patching post '${input.postId}' via session API...`);
+      const rawPost = await page.evaluate(
+        async ({ postId, message }) => {
+          const getCookie = (name: string) => {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop()?.split(';').shift();
+            return '';
+          };
+          const csrfToken = getCookie('MMCSRF');
+
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          };
+          if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken;
+          }
+
+          const res = await fetch(`/api/v4/posts/${encodeURIComponent(postId)}/patch`, {
+            method: 'PUT',
+            credentials: 'include',
+            headers,
+            body: JSON.stringify({
+              id: postId,
+              message,
+            }),
+          });
+
+          if (res.ok) {
+            return res.json();
+          }
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || `HTTP ${res.status}`);
+        },
+        { postId: input.postId, message: input.message }
+      );
+
+      if (rawPost && rawPost.id) {
+        return {
+          id: rawPost.id,
+          channelId: rawPost.channel_id,
+          userId: rawPost.user_id || user.id,
+          message: rawPost.message,
+          updatedAt: new Date(rawPost.update_at || Date.now()),
+        };
+      }
+    } catch (err) {
+      this.logger.debug('In-browser API edit failed, falling back to UI DOM edit', { error: String(err) });
+    }
+
+    // 2. Fallback Strategy: UI Fallback via DOM
+    this.logger.debug(`Playwright: Editing post '${input.postId}' via DOM UI...`);
+    try {
+      const postSelector = `#post_${input.postId}`;
+      const postElement = page.locator(postSelector).first();
+      await postElement.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+
+      // Hover over the post to reveal action menu
+      await postElement.hover().catch(() => {});
+
+      // Find and click the '...' (dot menu) or edit button
+      const dotMenuButton = postElement
+        .locator('button[id*="CENTER_button_"], button.post-menu__item, [data-testid*="post_menu"]')
+        .first();
+      if (await dotMenuButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await dotMenuButton.click();
+      }
+
+      // Click Edit action from dropdown menu or button
+      const editOption = page
+        .locator(`#edit_post_${input.postId}, button:has-text("Edit"), [data-testid="edit_post"]`)
+        .first();
+      await editOption.click({ timeout: 3000 });
+
+      // Fill in new text
+      const editTextbox = page.locator('#edit_textbox').first();
+      await editTextbox.waitFor({ state: 'visible', timeout: 5000 });
+      await editTextbox.fill(input.message);
+
+      // Submit via Save button
+      const saveButton = page.locator('#editButton, button:has-text("Save")').first();
+      await saveButton.click({ timeout: 3000 });
+
+      return {
+        id: input.postId,
+        channelId: 'browser-channel',
+        userId: user.id,
+        message: input.message,
+        updatedAt: new Date(),
+      };
+    } catch (domErr) {
+      throw new MattermostProviderError(
+        `Failed to edit post '${input.postId}' via browser session: ${domErr instanceof Error ? domErr.message : String(domErr)}`
+      );
+    }
   }
 
   public async getMessages(input: GetMessagesInput): Promise<Post[]> {

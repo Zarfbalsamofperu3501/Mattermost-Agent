@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  EditMessageActionSchema,
   MattermostActionSchema,
   ReadChannelActionSchema,
   ReplyToMessageActionSchema,
@@ -69,10 +70,37 @@ describe('Action Schemas', () => {
     }
   });
 
+  it('validates edit_message action with post ID or permalink', () => {
+    const payload1 = {
+      action: 'edit_message',
+      postId: 'wou41djpziyw9kgngtjzy9s1be',
+      message: 'Updated text',
+      from: 'AI Agent',
+    };
+    const parsed1 = EditMessageActionSchema.safeParse(payload1);
+    expect(parsed1.success).toBe(true);
+
+    const payload2 = {
+      action: 'edit_message',
+      postId: 'https://workspace.dot.co.id/dot-indonesia/pl/wou41djpziyw9kgngtjzy9s1be',
+      message: 'Updated from permalink',
+    };
+    const parsed2 = EditMessageActionSchema.safeParse(payload2);
+    expect(parsed2.success).toBe(true);
+
+    const invalid = {
+      action: 'edit_message',
+      postId: '',
+      message: 'Updated',
+    };
+    expect(EditMessageActionSchema.safeParse(invalid).success).toBe(false);
+  });
+
   it('discriminated union parses all supported actions', () => {
     const actions = [
       { action: 'send_message', channel: 'c1', message: 'm1' },
       { action: 'reply_to_message', channel: 'c1', rootId: 'r1', message: 'm1' },
+      { action: 'edit_message', postId: 'wou41djpziyw9kgngtjzy9s1be', message: 'm1' },
       { action: 'read_channel', channel: 'c1' },
       { action: 'get_channel', channel: 'c1' },
       { action: 'whoami' },
