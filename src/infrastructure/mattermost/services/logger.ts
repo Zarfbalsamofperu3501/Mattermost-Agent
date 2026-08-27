@@ -96,7 +96,9 @@ export class Logger {
       event: eventName,
       ...sanitized,
     });
-    console.log(logLine);
+    // In stdio MCP environments, stdout is reserved exclusively for JSON-RPC messages.
+    // All operational/event logs must be written to stderr to prevent protocol corruption.
+    console.error(logLine);
   }
 
   private logOutput(levelStr: string, message: string, payload?: Record<string, unknown>): void {
@@ -104,10 +106,12 @@ export class Logger {
     const sanitizedMsg = sanitizeSecret(message);
     const sanitizedPayload = this.sanitizePayload(payload);
 
+    // In stdio MCP environments, stdout is reserved exclusively for JSON-RPC messages.
+    // All operational/event logs must be written to stderr to prevent protocol corruption.
     if (sanitizedPayload && Object.keys(sanitizedPayload).length > 0) {
-      console.log(`[${timestamp}] [${levelStr}] ${sanitizedMsg} ${JSON.stringify(sanitizedPayload)}`);
+      console.error(`[${timestamp}] [${levelStr}] ${sanitizedMsg} ${JSON.stringify(sanitizedPayload)}`);
     } else {
-      console.log(`[${timestamp}] [${levelStr}] ${sanitizedMsg}`);
+      console.error(`[${timestamp}] [${levelStr}] ${sanitizedMsg}`);
     }
   }
 }
