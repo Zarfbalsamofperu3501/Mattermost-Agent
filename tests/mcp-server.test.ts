@@ -51,6 +51,16 @@ describe('Mattermost MCP Server', () => {
         enabledCount: 8,
         disabledCount: 2,
       }),
+      executeAction: vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          id: 'wou41djpziyw9kgngtjzy9s1be',
+          channelId: 'chan_mcp_123',
+          userId: 'usr_mcp_123',
+          message: 'Edited message via MCP',
+          updatedAt: new Date().toISOString(),
+        },
+      }),
     } as unknown as MattermostAutomationService;
 
     const server = createMattermostMcpServer(mockService);

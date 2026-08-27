@@ -1,4 +1,15 @@
-import { Channel, GetChannelInput, GetMessagesInput, Post, ReplyToMessageInput, SendMessageInput, SendMessageResult, User } from '../entities';
+import {
+  Channel,
+  EditMessageInput,
+  EditMessageResult,
+  GetChannelInput,
+  GetMessagesInput,
+  Post,
+  ReplyToMessageInput,
+  SendMessageInput,
+  SendMessageResult,
+  User,
+} from '../entities';
 
 export interface MattermostProvider {
   /**
@@ -25,6 +36,11 @@ export interface MattermostProvider {
    * Replies to an existing message thread.
    */
   replyToMessage(input: ReplyToMessageInput): Promise<SendMessageResult>;
+
+  /**
+   * Edits an existing message/post.
+   */
+  editMessage(input: EditMessageInput): Promise<EditMessageResult>;
 
   /**
    * Reads recent messages from a channel.

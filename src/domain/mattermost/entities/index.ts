@@ -78,3 +78,18 @@ export interface GetChannelInput {
   channelName?: string;
   teamId?: string;
 }
+
+export interface EditMessageInput {
+  postId: string; // Mendukung 26-char post ID atau permalink URL
+  message: string;
+  from?: string; // Optional attribution footer (e.g. "_~ from AI Agent_")
+}
+
+export interface EditMessageResult {
+  id: string;
+  channelId: string;
+  userId: string;
+  message: string;
+  updatedAt: Date;
+}
+

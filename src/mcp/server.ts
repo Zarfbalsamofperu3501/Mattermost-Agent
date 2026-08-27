@@ -126,6 +126,28 @@ export function createMattermostMcpServer(service?: MattermostAutomationService)
       },
     },
     {
+      name: 'mattermost_edit_message',
+      description: 'Edit an existing post/message in Mattermost by post ID or permalink URL.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          postId: {
+            type: 'string',
+            description: 'Post ID (26-character alphanumeric) or permalink URL of the message to edit.',
+          },
+          message: {
+            type: 'string',
+            description: 'New updated markdown message content.',
+          },
+          from: {
+            type: 'string',
+            description: 'Optional sender attribution label (e.g. "AI", "AI Agent").',
+          },
+        },
+        required: ['postId', 'message'],
+      },
+    },
+    {
       name: 'mattermost_read_channel',
       description: 'Read recent messages and thread replies from a Mattermost channel.',
       inputSchema: {
@@ -384,6 +406,40 @@ export function createMattermostMcpServer(service?: MattermostAutomationService)
                   null,
                   2
                 ),
+              },
+            ],
+          };
+        }
+
+        case 'mattermost_edit_message': {
+          const postId = String(args.postId);
+          const message = String(args.message);
+          const from = typeof args.from === 'string' ? args.from : undefined;
+
+          const actionResult = await automationService.executeAction({
+            action: 'edit_message',
+            postId,
+            message,
+            from,
+          });
+
+          if (!actionResult.success) {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: 'text',
+                  text: `Error editing message: ${actionResult.error?.message || 'Unknown error'}`,
+                },
+              ],
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(actionResult.data, null, 2),
               },
             ],
           };

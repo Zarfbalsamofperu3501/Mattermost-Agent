@@ -258,6 +258,45 @@ program
     }
   });
 
+// edit
+program
+  .command('edit <postIdOrPermalink> <message>')
+  .description('Edit an existing post/message in Mattermost by post ID or permalink URL')
+  .option('--from <sender>', 'Sender attribution label (e.g. "AI" -> "_~ from AI_")')
+  .option('--no-from', 'Suppress sender attribution footer')
+  .action(async (postIdOrPermalink, message, opts) => {
+    if (!postIdOrPermalink || !message) {
+      console.error('\n❌ Error: Post ID/Permalink and Message are required.');
+      console.error('   Usage: mattermost edit <postIdOrPermalink> "<message>" [--from "AI Agent"]\n');
+      process.exit(1);
+    }
+
+    const service = getService();
+    try {
+      const fromLabel = opts.from === false ? '' : opts.from;
+      const result = await service.editMessage({
+        postId: postIdOrPermalink,
+        message,
+        from: fromLabel,
+      });
+
+      if (program.opts().json) {
+        handleOutput(result, true);
+      } else {
+        console.log('\n✅ Message edited successfully');
+        console.log(`   Message ID:  ${result.id}`);
+        console.log(`   Channel ID:  ${result.channelId}`);
+        console.log(`   User ID:     ${result.userId}`);
+        console.log(`   Updated At:  ${result.updatedAt.toISOString()}`);
+        console.log('');
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      await service.close();
+    }
+  });
+
 // threads (Thread Inspector)
 program
   .command('threads [channel] [query]')

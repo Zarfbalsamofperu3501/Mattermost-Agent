@@ -42,6 +42,13 @@ describe('MattermostAutomationService', () => {
         message: 'Test reply',
         createdAt: new Date(),
       }),
+      editMessage: vi.fn().mockResolvedValue({
+        id: 'wou41djpziyw9kgngtjzy9s1be',
+        channelId: 'chan_eng_1234567890abcdef',
+        userId: 'usr_correct_123',
+        message: 'Edited message content',
+        updatedAt: new Date(),
+      }),
       getMessages: vi.fn().mockResolvedValue([]),
     };
   });
@@ -123,5 +130,65 @@ describe('MattermostAutomationService', () => {
 
     expect(actionResult.success).toBe(false);
     expect(actionResult.error?.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('edits message successfully with 26-char post ID', async () => {
+    const config = loadConfig({
+      MATTERMOST_URL: 'https://mattermost.example.com',
+      MATTERMOST_TOKEN: 'token-123',
+    });
+
+    const service = new MattermostAutomationService({ config, provider: mockProvider });
+    const result = await service.editMessage({
+      postId: 'wou41djpziyw9kgngtjzy9s1be',
+      message: 'Updated message',
+      from: 'AI Agent',
+    });
+
+    expect(result.id).toBe('wou41djpziyw9kgngtjzy9s1be');
+    expect(mockProvider.editMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        postId: 'wou41djpziyw9kgngtjzy9s1be',
+        message: 'Updated message\n\n_~ from AI Agent_',
+      })
+    );
+  });
+
+  it('edits message successfully extracting post ID from permalink URL', async () => {
+    const config = loadConfig({
+      MATTERMOST_URL: 'https://mattermost.example.com',
+      MATTERMOST_TOKEN: 'token-123',
+    });
+
+    const service = new MattermostAutomationService({ config, provider: mockProvider });
+    const result = await service.editMessage({
+      postId: 'https://workspace.dot.co.id/dot-indonesia/pl/wou41djpziyw9kgngtjzy9s1be',
+      message: 'Permalink edited message',
+    });
+
+    expect(result.id).toBe('wou41djpziyw9kgngtjzy9s1be');
+    expect(mockProvider.editMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        postId: 'wou41djpziyw9kgngtjzy9s1be',
+        message: 'Permalink edited message',
+      })
+    );
+  });
+
+  it('executes edit_message action safely via executeAction', async () => {
+    const config = loadConfig({
+      MATTERMOST_URL: 'https://mattermost.example.com',
+      MATTERMOST_TOKEN: 'token-123',
+    });
+
+    const service = new MattermostAutomationService({ config, provider: mockProvider });
+    const actionResult = await service.executeAction({
+      action: 'edit_message',
+      postId: 'wou41djpziyw9kgngtjzy9s1be',
+      message: 'Action executor edit',
+    });
+
+    expect(actionResult.success).toBe(true);
+    expect((actionResult.data as { id: string }).id).toBe('wou41djpziyw9kgngtjzy9s1be');
   });
 });

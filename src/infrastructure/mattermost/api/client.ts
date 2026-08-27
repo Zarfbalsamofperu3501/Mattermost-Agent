@@ -270,6 +270,16 @@ export class MattermostApiClient {
     });
   }
 
+  public async patchPost(postId: string, message: string): Promise<MattermostRawPost> {
+    return this.request<MattermostRawPost>(`/api/v4/posts/${encodeURIComponent(postId)}/patch`, {
+      method: 'PUT',
+      body: {
+        id: postId,
+        message,
+      },
+    });
+  }
+
   public async getPostsForChannel(channelId: string, page = 0, perPage = 30, since?: number): Promise<MattermostRawPostList> {
     const params = new URLSearchParams({
       page: page.toString(),

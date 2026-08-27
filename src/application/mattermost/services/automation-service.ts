@@ -1,5 +1,5 @@
 import { loadConfig, MattermostConfig } from '../../../config/env';
-import { Channel, Post, SendMessageResult, User } from '../../../domain/mattermost/entities';
+import { Channel, EditMessageResult, Post, SendMessageResult, User } from '../../../domain/mattermost/entities';
 import { MattermostProvider } from '../../../domain/mattermost/providers/mattermost-provider.interface';
 import { MattermostApiClient } from '../../../infrastructure/mattermost/api/client';
 import { MattermostApiProvider } from '../../../infrastructure/mattermost/api/api-provider';
@@ -144,6 +144,22 @@ export class MattermostAutomationService {
       from: params.from,
       teamId: params.teamId,
       idempotencyKey: params.idempotencyKey,
+    });
+  }
+
+  /**
+   * Edits an existing message by post ID or permalink URL.
+   */
+  public async editMessage(params: {
+    postId: string;
+    message: string;
+    from?: string;
+  }): Promise<EditMessageResult> {
+    return this.actionExecutor.handleEditMessage({
+      action: 'edit_message',
+      postId: params.postId,
+      message: params.message,
+      from: params.from,
     });
   }
 
